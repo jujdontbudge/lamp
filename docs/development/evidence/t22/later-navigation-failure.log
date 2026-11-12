@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "<checkout>/tools/kits_demo.py", line 221, in <module>
+    main()
+  File "<checkout>/tools/kits_demo.py", line 144, in main
+    assert task('navigate', url='https://the-internet.herokuapp.com/secure')[0] == 200
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lamp feature map</title><style>
+body{font:16px system-ui,sans-serif;background:#f8fafc;color:#0f172a;margin:32px}h1{margin-bottom:8px}p{max-width:1000px;line-height:1.6}a{color:#1d4ed8}.map{overflow:auto;border:1px solid #cbd5e1;border-radius:12px;background:white}svg{display:block;width:1800px;max-width:none}.edge{fill:none;stroke:#94a3b8;stroke-width:1.5}svg rect{fill:#eff6ff;stroke:#93c5fd}svg a:hover rect,svg a:focus rect{fill:#dbeafe;stroke:#1d4ed8}svg text{font:14px system-ui;fill:#0f172a}.id,.wave{font-weight:700}li{margin:10px 0}
+</style></head><body><h1>Lamp feature map</h1><p>26 feature tickets · 43 feature dependencies. Arrows mean prerequisite → dependent. Waves show a possible order; shared interfaces allow overlap. Click a ticket to read its complete prompt. <a href="README.md">Ticket guide</a>.</p><p>Build features and show one real end-to-end demonstration per ticket, with almost no new tests. Release measurements are published honestly and never block work or release.</p><div class="map">
+<svg viewBox="0 0 1800 790" role="img" aria-labelledby="map-title map-desc"><title id="map-title">Lamp feature dependencies</title><desc id="map-desc">Arrows connect prerequisite features to their dependents. Completed measurement work and retired tickets have no dependency edges.</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
+<path data-from="T1" data-to="T2" d="M 245 115 C 262.5 115, 262.5 115, 280 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T1" data-to="T3" d="M 245 115 C 262.5 115, 262.5 230, 280 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T1" data-to="T4" d="M 245 115 C 262.5 115, 262.5 345, 280 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T2" data-to="T7" d="M 500 115 C 517.5 115, 517.5 115, 535 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T2" data-to="T8" d="M 500 115 C 517.5 115, 517.5 230, 535 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T2" data-to="T9" d="M 500 115 C 517.5 115, 517.5 345, 535 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T3" data-to="T9" d="M 500 230 C 517.5 230, 517.5 345, 535 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T3" data-to="T10" d="M 500 230 C 517.5 230, 517.5 460, 535 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T1" data-to="T11" d="M 245 115 C 262.5 115, 262.5 460, 280 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T4" data-to="T12" d="M 500 345 C 517.5 345, 517.5 575, 535 575" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T8" data-to="T15" d="M 755 230 C 772.5 230, 772.5 115, 790 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T10" data-to="T16" d="M 755 460 C 772.5 460, 772.5 230, 790 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T10" data-to="T17" d="M 755 460 C 772.5 460, 772.5 345, 790 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T11" data-to="T17" d="M 500 460 C 645.0 460, 645.0 345, 790 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T10" data-to="T18" d="M 755 460 C 772.5 460, 772.5 460, 790 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T11" data-to="T18" d="M 500 460 C 645.0 460, 645.0 460, 790 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T7" data-to="T19" d="M 755 115 C 772.5 115, 772.5 575, 790 575" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T10" data-to="T19" d="M 755 460 C 772.5 460, 772.5 575, 790 575" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T7" data-to="T20" d="M 755 115 C 900.0 115, 900.0 115, 1045 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T8" data-to="T20" d="M 755 230 C 900.0 230, 900.0 115, 1045 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T15" data-to="T20" d="M 1010 115 C 1027.5 115, 1027.5 115, 1045 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T9" data-to="T21" d="M 755 345 C 900.0 345, 900.0 230, 1045 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T17" data-to="T21" d="M 1010 345 C 1027.5 345, 1027.5 230, 1045 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T17" data-to="T22" d="M 1010 345 C 1027.5 345, 1027.5 345, 1045 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T16" data-to="T23" d="M 1010 230 C 1027.5 230, 1027.5 460, 1045 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T17" data-to="T23" d="M 1010 345 C 1027.5 345, 1027.5 460, 1045 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T18" data-to="T24" d="M 1010 460 C 1027.5 460, 1027.5 575, 1045 575" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T21" data-to="T25" d="M 1265 230 C 1282.5 230, 1282.5 115, 1300 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T12" data-to="T26" d="M 755 575 C 900.0 575, 900.0 690, 1045 690" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T18" data-to="T26" d="M 1010 460 C 1027.5 460, 1027.5 690, 1045 690" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T19" data-to="T26" d="M 1010 575 C 1027.5 575, 1027.5 690, 1045 690" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T21" data-to="T27" d="M 1265 230 C 1282.5 230, 1282.5 230, 1300 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T22" data-to="T27" d="M 1265 345 C 1282.5 345, 1282.5 230, 1300 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T23" data-to="T27" d="M 1265 460 C 1282.5 460, 1282.5 230, 1300 230" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T15" data-to="T28" d="M 1010 115 C 1155.0 115, 1155.0 345, 1300 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T16" data-to="T28" d="M 1010 230 C 1155.0 230, 1155.0 345, 1300 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T20" data-to="T28" d="M 1265 115 C 1282.5 115, 1282.5 345, 1300 345" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T26" data-to="T29" d="M 1265 690 C 1282.5 690, 1282.5 460, 1300 460" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T24" data-to="T31" d="M 1265 575 C 1410.0 575, 1410.0 115, 1555 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T25" data-to="T31" d="M 1520 115 C 1537.5 115, 1537.5 115, 1555 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T27" data-to="T31" d="M 1520 230 C 1537.5 230, 1537.5 115, 1555 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T28" data-to="T31" d="M 1520 345 C 1537.5 345, 1537.5 115, 1555 115" class="edge" marker-end="url(#arrow)"/>
+<path data-from="T29" data-to="T31" d="M 1520 460 C 1537.5 460, 1537.5 115, 1555 115" class="edge" marker-end="url(#arrow)"/>
+<a href="T01-skeleton-and-contracts.md" data-ticket="T1"><rect x="25" y="80" width="220" height="70" rx="10"/><text x="37" y="105" class="id">T1</text><text x="37" y="129">Skeleton and contracts</text><title>T1: Skeleton and contracts; needs nothing</title></a>
+<a href="T02-linux-engine.md" data-ticket="T2"><rect x="280" y="80" width="220" height="70" rx="10"/><text x="292" y="105" class="id">T2</text><text x="292" y="129">Linux engine</text><title>T2: Linux engine; needs T1</title></a>
+<a href="T03-demo-control-path.md" data-ticket="T3"><rect x="280" y="195" width="220" height="70" rx="10"/><text x="292" y="220" class="id">T3</text><text x="292" y="244">Demo control path</text><title>T3: Demo control path; needs T1</title></a>
+<a href="T04-guard-and-collectors.md" data-ticket="T4"><rect x="280" y="310" width="220" height="70" rx="10"/><text x="292" y="335" class="id">T4</text><text x="292" y="359">Guard and collectors</text><title>T4: Guard and collectors; needs T1</title></a>
+<a href="T11-plugin-host.md" data-ticket="T11"><rect x="280" y="425" width="220" height="70" rx="10"/><text x="292" y="450" class="id">T11</text><text x="292" y="474">Plugin host</text><title>T11: Plugin host; needs T1</title></a>
+<a href="T07-storage-proof.md" data-ticket="T7"><rect x="535" y="80" width="220" height="70" rx="10"/><text x="547" y="105" class="id">T7</text><text x="547" y="129">Durable capture and storage</text><title>T7: Durable capture and storage; needs T2</title></a>
+<a href="T08-mac-feasibility.md" data-ticket="T8"><rect x="535" y="195" width="220" height="70" rx="10"/><text x="547" y="220" class="id">T8</text><text x="547" y="244">Mac guest engines</text><title>T8: Mac guest engines; needs T2</title></a>
+<a href="T09-sign-in-custody.md" data-ticket="T9"><rect x="535" y="310" width="220" height="70" rx="10"/><text x="547" y="335" class="id">T9</text><text x="547" y="359">Subscription sign-in custody</text><title>T9: Subscription sign-in custody; needs T2, T3</title></a>
+<a href="T10-control-core.md" data-ticket="T10"><rect x="535" y="425" width="220" height="70" rx="10"/><text x="547" y="450" class="id">T10</text><text x="547" y="474">Control core</text><title>T10: Control core; needs T3</title></a>
+<a href="T12-network.md" data-ticket="T12"><rect x="535" y="540" width="220" height="70" rx="10"/><text x="547" y="565" class="id">T12</text><text x="547" y="589">Network</text><title>T12: Network; needs T4</title></a>
+<a href="T15-mac-breadth.md" data-ticket="T15"><rect x="790" y="80" width="220" height="70" rx="10"/><text x="802" y="105" class="id">T15</text><text x="802" y="129">Mac devices and fallback</text><title>T15: Mac devices and fallback; needs T8</title></a>
+<a href="T16-fleet.md" data-ticket="T16"><rect x="790" y="195" width="220" height="70" rx="10"/><text x="802" y="220" class="id">T16</text><text x="802" y="244">Fleet</text><title>T16: Fleet; needs T10</title></a>
+<a href="T17-broker.md" data-ticket="T17"><rect x="790" y="310" width="220" height="70" rx="10"/><text x="802" y="335" class="id">T17</text><text x="802" y="359">Broker</text><title>T17: Broker; needs T10, T11</title></a>
+<a href="T18-access-and-ssh.md" data-ticket="T18"><rect x="790" y="425" width="220" height="70" rx="10"/><text x="802" y="450" class="id">T18</text><text x="802" y="474">Access and SSH</text><title>T18: Access and SSH; needs T10, T11</title></a>
+<a href="T19-lifecycle-and-storage.md" data-ticket="T19"><rect x="790" y="540" width="220" height="70" rx="10"/><text x="802" y="565" class="id">T19</text><text x="802" y="589">Lifecycle and storage</text><title>T19: Lifecycle and storage; needs T7, T10</title></a>
+<a href="T20-linux-breadth.md" data-ticket="T20"><rect x="1045" y="80" width="220" height="70" rx="10"/><text x="1057" y="105" class="id">T20</text><text x="1057" y="129">Linux support and devices</text><title>T20: Linux support and devices; needs T7, T8, T15</title></a>
+<a href="T21-sessions-and-consoles.md" data-ticket="T21"><rect x="1045" y="195" width="220" height="70" rx="10"/><text x="1057" y="220" class="id">T21</text><text x="1057" y="244">Sessions and consoles</text><title>T21: Sessions and consoles; needs T9, T17</title></a>
+<a href="T22-kits.md" data-ticket="T22"><rect x="1045" y="310" width="220" height="70" rx="10"/><text x="1057" y="335" class="id">T22</text><text x="1057" y="359">Kits</text><title>T22: Kits; needs T17</title></a>
+<a href="T23-budgets-and-audit.md" data-ticket="T23"><rect x="1045" y="425" width="220" height="70" rx="10"/><text x="1057" y="450" class="id">T23</text><text x="1057" y="474">Budgets and audit</text><title>T23: Budgets and audit; needs T16, T17</title></a>
+<a href="T24-hosted-side.md" data-ticket="T24"><rect x="1045" y="540" width="220" height="70" rx="10"/><text x="1057" y="565" class="id">T24</text><text x="1057" y="589">Hosted side</text><title>T24: Hosted side; needs T18</title></a>
+<a href="T26-ci-core-github.md" data-ticket="T26"><rect x="1045" y="655" width="220" height="70" rx="10"/><text x="1057" y="680" class="id">T26</text><text x="1057" y="704">CI core and GitHub</text><title>T26: CI core and GitHub; needs T12, T18, T19</title></a>
+<a href="T25-harness-catalogue.md" data-ticket="T25"><rect x="1300" y="80" width="220" height="70" rx="10"/><text x="1312" y="105" class="id">T25</text><text x="1312" y="129">Harness catalogue</text><title>T25: Harness catalogue; needs T21</title></a>
+<a href="T27-dashboard.md" data-ticket="T27"><rect x="1300" y="195" width="220" height="70" rx="10"/><text x="1312" y="220" class="id">T27</text><text x="1312" y="244">Dashboard</text><title>T27: Dashboard; needs T21, T22, T23</title></a>
+<a href="T28-install-and-update.md" data-ticket="T28"><rect x="1300" y="310" width="220" height="70" rx="10"/><text x="1312" y="335" class="id">T28</text><text x="1312" y="359">Install, update and SDKs</text><title>T28: Install, update and SDKs; needs T15, T16, T20</title></a>
+<a href="T29-other-ci-and-triggers.md" data-ticket="T29"><rect x="1300" y="425" width="220" height="70" rx="10"/><text x="1312" y="450" class="id">T29</text><text x="1312" y="474">Other CI and triggers</text><title>T29: Other CI and triggers; needs T26</title></a>
+<a href="T31-public-release.md" data-ticket="T31"><rect x="1555" y="80" width="220" height="70" rx="10"/><text x="1567" y="105" class="id">T31</text><text x="1567" y="129">Public release</text><title>T31: Public release; needs T24, T25, T27, T28, T29</title></a>
+<text x="25" y="40" class="wave">Wave 1</text>
+<text x="280" y="40" class="wave">Wave 2</text>
+<text x="535" y="40" class="wave">Wave 3</text>
+<text x="790" y="40" class="wave">Wave 4</text>
+<text x="1045" y="40" class="wave">Wave 5</text>
+<text x="1300" y="40" class="wave">Wave 6</text>
+<text x="1555" y="40" class="wave">Wave 7</text>
+</svg></div><h2>Completed</h2><ul><li><a href="T05-oracles-and-benchmarks.md">T5 Measurement tools — done</a>; optional tools, no downstream prerequisite.</li><li><a href="T06-engine-gate.md">T6 Engine integration — done</a>; accepted by the owner. Its historical failed speed result stays failed.</li></ul><h2>Retired</h2><p><a href="T13-proof-suite.md">T13 Proof suite</a>, <a href="T14-format-freeze.md">T14 Format freeze</a> and <a href="T30-certification-run.md">T30 Certification run</a> have no work or dependency arrows. PR #8 is closed. Formats are versioned by their feature owners.</p><p>T19 uses T7 and T10. T20 uses T7, T8 and T15. T31 uses T24, T25, T27, T28 and T29.</p></body></html>
