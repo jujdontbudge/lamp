@@ -91,7 +91,22 @@ func (s *Service) addEvents(delta *journal) {
 		}
 		sequence := s.journal.EventSequence + uint64(len(delta.Events)) + 1
 		eventID := fmt.Sprintf("%s-1-%d", s.hostID(), sequence)
-		raw, _ := json.Marshal(map[string]string{"state": r.state})
+		data := map[string]string{"state": r.state}
+		if r.kind == "sandbox" && r.state == "failed" {
+			data["reason"] = delta.Sandboxes[r.id].Labels["lamp.failure"]
+		}
+		if r.kind == "sandbox" {
+			if reason := delta.Sandboxes[r.id].Labels["lamp.stop_reason"]; reason != "" {
+				data["stop_reason"] = reason
+			}
+		}
+		if r.kind == "task" && delta.Accountability != nil {
+			t := delta.Accountability.Tasks[r.id]
+			if warning := t.Labels["lamp.budget_warning"]; warning != "" {
+				data["budget_warning"] = warning
+			}
+		}
+		raw, _ := json.Marshal(data)
 		typ := r.kind + ".state_changed"
 		if r.kind == "operation" && terminal(api.OperationState(r.state)) {
 			typ = "operation.completed"
@@ -315,12 +330,16 @@ func (s *Service) eventsHTTP(w http.ResponseWriter, r *http.Request, id string, 
 				return
 			}
 			controller.SetWriteDeadline(time.Time{})
+			limit -= uint64(len(items))
+			if limit == 0 || wait > 0 && !time.Now().Before(until) {
+				return
+			}
 			if len(items) > 0 {
 				continue
 			}
 		}
 		delay := time.Until(until)
-		if streaming || delay > time.Second {
+		if streaming && wait == 0 || delay > time.Second {
 			delay = time.Second
 		}
 		if delay <= 0 {

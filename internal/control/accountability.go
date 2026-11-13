@@ -60,15 +60,16 @@ type usageSample struct {
 	DurationMS uint64 `json:"duration_ms,omitempty"`
 }
 type accountability struct {
-	RetainedBytes map[string]uint64        `json:"retained_bytes"`
-	Budgets       map[string]api.Budget    `json:"budgets"`
-	Tasks         map[string]api.Task      `json:"tasks"`
-	TaskCallers   map[string]caller        `json:"task_callers"`
-	Reservations  map[string]reservation   `json:"reservations"`
-	Audit         []api.AuditRecord        `json:"audit"`
-	Exports       []api.AuditRecord        `json:"exports,omitempty"`
-	Telemetry     map[string]api.Telemetry `json:"telemetry"`
-	Usage         map[string][]usageSample `json:"usage"`
+	RetainedBytes       map[string]uint64        `json:"retained_bytes"`
+	ForkChargesReleased bool                     `json:"fork_charges_released,omitempty"`
+	Budgets             map[string]api.Budget    `json:"budgets"`
+	Tasks               map[string]api.Task      `json:"tasks"`
+	TaskCallers         map[string]caller        `json:"task_callers"`
+	Reservations        map[string]reservation   `json:"reservations"`
+	Audit               []api.AuditRecord        `json:"audit"`
+	Exports             []api.AuditRecord        `json:"exports,omitempty"`
+	Telemetry           map[string]api.Telemetry `json:"telemetry"`
+	Usage               map[string][]usageSample `json:"usage"`
 	// Notification sinks and deliveries (OPS-003, notifications.go).
 	Sinks          map[string]api.NotificationSink `json:"notification_sinks,omitempty"`
 	Notifications  map[string]*notificationRecord  `json:"notifications,omitempty"`
@@ -81,9 +82,31 @@ func (s *Service) initAccountability() {
 		if s.journal.Accountability.RetainedBytes == nil {
 			s.journal.Accountability.RetainedBytes = map[string]uint64{}
 		}
+		// Older journals permanently charged each temporary fork capture, even
+		// after the child was deleted. The consumed capture is engine GC's
+		// responsibility; only the child's live resources need a reservation.
+		if !s.journal.Accountability.ForkChargesReleased {
+			for _, rec := range s.journal.Operations {
+				if value(rec.Operation.OperationName) != "sandbox_fork" {
+					continue
+				}
+				sb := s.journal.Sandboxes[rec.Resource.Id]
+				if sb.Resources == nil {
+					continue
+				}
+				t := s.journal.Accountability.Tasks[value(sb.TaskId)]
+				budget := value(t.BudgetId)
+				charge := (sb.Resources.DiskGib << 30) + (sb.Resources.MemoryMib << 20)
+				held := s.journal.Accountability.RetainedBytes[budget]
+				if held >= charge {
+					s.journal.Accountability.RetainedBytes[budget] = held - charge
+				}
+			}
+			s.journal.Accountability.ForkChargesReleased = true
+		}
 		return
 	}
-	s.journal.Accountability = &accountability{RetainedBytes: map[string]uint64{}, Budgets: map[string]api.Budget{}, Tasks: map[string]api.Task{}, TaskCallers: map[string]caller{}, Reservations: map[string]reservation{}, Audit: []api.AuditRecord{}, Telemetry: map[string]api.Telemetry{}, Usage: map[string][]usageSample{}}
+	s.journal.Accountability = &accountability{ForkChargesReleased: true, RetainedBytes: map[string]uint64{}, Budgets: map[string]api.Budget{}, Tasks: map[string]api.Task{}, TaskCallers: map[string]caller{}, Reservations: map[string]reservation{}, Audit: []api.AuditRecord{}, Telemetry: map[string]api.Telemetry{}, Usage: map[string][]usageSample{}}
 }
 func (s *Service) telemetry(a caller) api.Telemetry {
 	if t, ok := s.journal.Accountability.Telemetry[a.Principal]; ok {
@@ -226,13 +249,13 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 				return fail("INVALID_ARGUMENT", "wall time exceeds supported duration")
 			}
 			if d := textField(m, "deadline_at"); d != "" {
-				if _, e := time.Parse(time.RFC3339Nano, d); e != nil {
-					return fail("INVALID_ARGUMENT", "invalid deadline")
+				if at, e := time.Parse(time.RFC3339Nano, d); e != nil || !at.After(s.enforcementNow()) || at.Sub(s.enforcementNow()) > 365*24*time.Hour {
+					return fail("INVALID_ARGUMENT", "deadline must be in the next year")
 				}
 			}
 			if w, ok := m["watchdog"].(map[string]any); ok {
-				if uintField(w, "warn_after_ms") != 0 || uintField(w, "repeated_action_limit") != 0 || textField(w, "on_stuck") == "ask" {
-					return fail("INVALID_ARGUMENT", "this watchdog supports hard block/stop only")
+				if uintField(w, "repeated_action_limit") != 0 || textField(w, "on_stuck") == "ask" {
+					return fail("INVALID_ARGUMENT", "repeated_action_limit and on_stuck ask are not supported")
 				}
 			}
 			m["token_home_host_id"] = s.hostID()
@@ -246,7 +269,23 @@ func (s *Service) accountMutation(a caller, op api.OperationDescriptor, in map[s
 		assign(m, &b)
 		c.Budgets[ref.Id] = b
 	} else if kind == "task" {
-		if verb == "create" {
+		if verb == "update" {
+			if err := acceptFields(in, "task_id deadline_at labels"); err != nil {
+				return ref, nil, nil, nil, err
+			}
+			if textField(m, "state") != "running" {
+				return fail("RESOURCE_IN_USE", "only running tasks may be updated")
+			}
+			if raw, ok := in["deadline_at"]; ok {
+				deadline := fmt.Sprint(raw)
+				when, err := time.Parse(time.RFC3339Nano, deadline)
+				if err != nil || !s.enforcementNow().Before(when) || earlier(textField(m, "deadline_at"), deadline) {
+					return fail("INVALID_ARGUMENT", "task deadline may only be shortened into the future")
+				}
+				m["deadline_at"] = deadline
+			}
+			applyLabels(m, in)
+		} else if verb == "create" {
 			for _, k := range []string{"parent_task_id", "budget_id", "deadline_at", "labels", "visibility"} {
 				if v, ok := in[k]; ok {
 					m[k] = v
@@ -334,7 +373,10 @@ func (s *Service) taskStopRequired(t api.Task, checkAuthority bool) bool {
 	return true
 }
 func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error {
-	retains := name == "sandbox_fork" || name == "snapshot_create" || name == "sandbox_suspend" || name == "share_create"
+	if name != "sandbox_delete" && s.controlGrantRevoked() {
+		return reject("SCOPE_DENIED", "host control grant revoked; enroll a new supervisor grant")
+	}
+	retains := name == "snapshot_create" || name == "sandbox_suspend" || name == "share_create"
 	if name == "sandbox_delete" {
 		return nil
 	}
@@ -380,22 +422,21 @@ func (s *Service) accountAdmission(a caller, name string, sb api.Sandbox) error 
 		// Deleted sandboxes keep their slot until their spools are captured and
 		// removed; live and unreleased sandboxes each hold one reservation.
 		held := 0
+		var heldIDs []string
 		for id, x := range s.journal.Sandboxes {
-			if x.State != "deleted" || !s.auditReleased[id] {
+			if !s.guardReleasable(x) || !s.auditReleased[id] {
 				held++
+				heldIDs = append(heldIDs, id)
 			}
 		}
 		if uint64(held+1) > q.AuditBytes/s.auditReservationBytes {
-			return reject("CONTROL_QUOTA_EXCEEDED", "retained guard spool reservations exhausted")
-		}
-		if retains && sb.Resources != nil {
-			disk += sb.Resources.DiskGib + (sb.Resources.MemoryMib+1023)/1024
+			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("audit storage (guard spool) limit=%d bytes, used=%d bytes, request=%d bytes; held sandboxes=%v; delete sandboxes or fix --audit-release and restart lampd to retry cleanup", q.AuditBytes, uint64(held)*s.auditReservationBytes, s.auditReservationBytes, heldIDs))
 		}
 		if n >= q.Sandboxes || sb.Resources == nil || sb.Resources.MemoryMib > q.MemoryMiB || mem > q.MemoryMiB-sb.Resources.MemoryMib || sb.Resources.DiskGib > q.DiskGiB || disk > q.DiskGiB-sb.Resources.DiskGib {
-			return reject("CONTROL_QUOTA_EXCEEDED", "sandbox resource quota reached")
+			return reject("CONTROL_QUOTA_EXCEEDED", fmt.Sprintf("sandbox quota: count=%d/%d, memory=%d/%d MiB, disk=%d/%d GiB; request=%d MiB/%d GiB; delete sandboxes or raise --quota-file limits", n, q.Sandboxes, mem, q.MemoryMiB, disk, q.DiskGiB, sb.Resources.MemoryMib, sb.Resources.DiskGib))
 		}
 	}
-	if retains && name != "sandbox_fork" && sb.Resources != nil && (disk+sb.Resources.DiskGib+(sb.Resources.MemoryMib+1023)/1024 > q.DiskGiB) {
+	if retains && sb.Resources != nil && (disk+sb.Resources.DiskGib+(sb.Resources.MemoryMib+1023)/1024 > q.DiskGiB) {
 		return reject("CONTROL_QUOTA_EXCEEDED", "retained capture disk quota reached")
 	}
 	if sb.TaskId != nil {
@@ -486,6 +527,12 @@ func (s *Service) operationBudget(r *record) string {
 	return ""
 }
 func (s *Service) sandboxStopRequired(sb api.Sandbox, checkAuthority bool) bool {
+	if checkAuthority && sb.State != "suspended" && s.controlGrantRevoked() {
+		return true
+	}
+	if s.taskExpired(sb) {
+		return true
+	}
 	// Suspended captures are inert encrypted state, not task execution. Ending
 	// the old Task must not erase an explicitly retained CI inspection capture.
 	// Resume separately requires current (and, for ended jobs, new) Task authority.
@@ -547,6 +594,19 @@ func (s *Service) watchAccountability() {
 		}
 		changed := false
 		for id, t := range s.journal.Accountability.Tasks {
+			budget := s.journal.Accountability.Budgets[value(t.BudgetId)]
+			if t.State == "running" && budget.Watchdog != nil && value(budget.Watchdog.WarnAfterMs) > 0 && t.Labels["lamp.budget_warning"] == "" {
+				started, _ := time.Parse(time.RFC3339Nano, t.CreatedAt)
+				if s.enforcementNow().Sub(started) >= time.Duration(*budget.Watchdog.WarnAfterMs)*time.Millisecond {
+					if t.Labels == nil {
+						t.Labels = api.StringMap{}
+					}
+					t.Labels["lamp.budget_warning"] = "wall-time budget is running out"
+					t.Revision++
+					s.journal.Accountability.Tasks[id] = t
+					changed = true
+				}
+			}
 			stalled := t.State == "running" && s.taskStalled(t)
 			if stalled || t.State == "running" && s.taskStopRequired(t, checkAuthority) {
 				// A watchdog block (no progress for block_after_ms before the
@@ -618,6 +678,13 @@ func (s *Service) stopAccountableSandbox(id string) {
 	defer s.mu.Unlock()
 	delete(s.busy, id)
 	sb = s.journal.Sandboxes[id]
+	if sb.Labels == nil {
+		sb.Labels = api.StringMap{}
+	}
+	sb.Labels["lamp.stop_reason"] = "budget_or_authority_expired"
+	if s.taskExpired(sb) {
+		sb.Labels["lamp.stop_reason"] = "lifecycle_expired"
+	}
 	sb.Revision++
 	sb.UpdatedAt = timestamp()
 	if err == nil {
@@ -669,6 +736,16 @@ func (s *Service) accountabilityBridge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sb, ok := s.journal.Sandboxes[in.Sandbox]
+	if !ok {
+		// Managed model grants may follow a real session between host and VM.
+		// Project that session onto the existing task ledger; never create a
+		// sandbox record or grant unbudgeted host model access.
+		if work := s.journal.Control.Sessions[in.Sandbox]; work != nil {
+			state := textField(work.Resource, "state")
+			sb = api.Sandbox{Id: in.Sandbox, OwnerId: textField(work.Resource, "owner_id"), State: "ready", TaskId: pointer(textField(work.Resource, "task_id"))}
+			ok = state == "active" || state == "starting" || state == "moving"
+		}
+	}
 	if !ok {
 		http.Error(w, "sandbox unavailable", 403)
 		return
@@ -1059,10 +1136,10 @@ func (s *Service) taskStalled(t api.Task) bool {
 		}
 		if s.life != nil {
 			if l := s.life.Sandboxes[id]; l != nil {
-				if sb.State == "ready" && l.idleFrom.IsZero() {
+				if sb.State == "ready" && l.IdleFrom.IsZero() {
 					return false
 				}
-				for _, at := range []time.Time{l.activity, l.idleFrom} {
+				for _, at := range []time.Time{l.Activity, l.IdleFrom} {
 					if at.After(last) {
 						last = at
 					}

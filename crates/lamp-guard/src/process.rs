@@ -391,6 +391,8 @@ pub fn run(
         ));
     }
     fs::set_permissions(STOP_DIR, fs::Permissions::from_mode(0o755))?;
+    let task_cwd = std::env::current_dir()?;
+    let root_mapping = crate::rootfs::mapping(uid)?;
     let options = libc::PTRACE_O_TRACEFORK
         | libc::PTRACE_O_TRACEVFORK
         | libc::PTRACE_O_TRACECLONE
@@ -398,6 +400,7 @@ pub fn run(
         | libc::PTRACE_O_EXITKILL
         | libc::PTRACE_O_TRACESECCOMP
         | libc::PTRACE_O_TRACESYSGOOD;
+    let terminal = unsafe { libc::isatty(0) } == 1;
     let mut gate = [0; 2];
     if unsafe { libc::pipe2(gate.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
         return Err(io::Error::last_os_error());
@@ -418,7 +421,10 @@ pub fn run(
                 child_fail();
             }
             drop(gate_read);
-            check(crate::close_range(3, u32::MAX, 0));
+            use std::os::fd::AsRawFd;
+            if crate::confinement::close_other_fds(&[root_mapping.as_raw_fd()]).is_err() {
+                child_fail();
+            }
             check(libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWPID));
             check(libc::mount(
                 ptr::null(),
@@ -427,11 +433,26 @@ pub fn run(
                 libc::MS_REC | libc::MS_PRIVATE,
                 ptr::null(),
             ));
+            let old_root = match crate::rootfs::enter(&root_mapping) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("lamp-guard: rootfs setup: {error}");
+                    child_fail();
+                }
+            };
+            drop(root_mapping);
             let task = libc::fork();
             if task < 0 {
                 child_fail();
             }
             if task == 0 {
+                // The controlling terminal's session must be visible in the
+                // task PID namespace. Acquiring it in the outer collector
+                // makes shell job control refer to an invisible process group.
+                if terminal {
+                    check(libc::setsid());
+                    check(libc::ioctl(0, libc::TIOCSCTTY, 0));
+                }
                 // Detach inherited proc first: task root must not unmount the new proc
                 // and reveal a view of the tracer's ancestor PID namespace underneath.
                 check(libc::umount2(c("/proc").as_ptr(), libc::MNT_DETACH));
@@ -447,15 +468,24 @@ pub fn run(
                 libc::raise(libc::SIGSTOP); // only the trusted parent can install the UID maps
                 check(libc::setresgid(0, 0, 0));
                 check(libc::setresuid(0, 0, 0));
+                if let Err(error) = std::fs::remove_dir(&old_root) {
+                    eprintln!("lamp-guard: task root cleanup: {error}");
+                    child_fail();
+                }
+                if let Err(error) = std::env::set_current_dir(&task_cwd) {
+                    eprintln!("lamp-guard: task cwd: {error}");
+                    child_fail();
+                }
                 task_seccomp();
                 // All inherited guest environment is stripped. No host secret comes from getenv.
                 check(libc::clearenv());
                 check(libc::setenv(
                     c("PATH").as_ptr(),
-                    c("/usr/bin:/bin").as_ptr(),
+                    c("/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+                        .as_ptr(),
                     1,
                 ));
-                check(libc::setenv(c("HOME").as_ptr(), c("/tmp").as_ptr(), 1));
+                check(libc::setenv(c("HOME").as_ptr(), c("/root").as_ptr(), 1));
                 // The requested task environment, validated before fork,
                 // applied last so it overrides the defaults.
                 for (key, value) in &env {
@@ -806,9 +836,8 @@ pub fn run(
                         .trim()
                         .is_empty()
                 {
-                    fs::write(format!("/proc/{pid}/setgroups"), "deny")?;
-                    fs::write(format!("/proc/{pid}/uid_map"), format!("0 {uid} 1\n"))?;
-                    fs::write(format!("/proc/{pid}/gid_map"), format!("0 {uid} 1\n"))?;
+                    fs::write(format!("/proc/{pid}/uid_map"), format!("0 {uid} 65536\n"))?;
+                    fs::write(format!("/proc/{pid}/gid_map"), format!("0 {uid} 65536\n"))?;
                     mapped = true;
                     emit(
                         &emitter,

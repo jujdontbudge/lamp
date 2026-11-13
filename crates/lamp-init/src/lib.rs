@@ -30,6 +30,8 @@ pub enum GuestRequest {
     /// resets the guest's vsock connections never loses a completion.
     Wait(Wait),
     SessionCall(SessionCall),
+    ExecIo(ExecIo),
+    Mount(Mount),
     /// Freezes every task process (the `tasks` cgroup) before a capture, so
     /// nothing runs between the copy and the copy's own identity barrier.
     Freeze(Empty),
@@ -98,6 +100,12 @@ pub struct Exec {
     /// Kill the command's process group after this long; 0 means never.
     pub timeout_ms: u64,
     pub output_limit: usize,
+    #[serde(default)]
+    pub stdin_path: String,
+    #[serde(default)]
+    pub pty: bool,
+    #[serde(default)]
+    pub stdin_open: bool,
     /// When set, the command runs only under the protected task collector
     /// (`lamp-guard collect vsock:PORT TASK_UID -- argv`), which streams its
     /// process records to the host before releasing each effect.
@@ -116,7 +124,7 @@ pub struct Audit {
 }
 
 /// Guest path of the protected collector (installed by the seed).
-pub const GUARD_BIN: &str = "/sbin/lamp-guard";
+pub const GUARD_BIN: &str = "/run/lamp/lamp-guard";
 /// Guest side of the private sandbox link (a /30 shared with the guard).
 pub const GUEST_ADDR: &str = "198.18.240.2";
 pub const GUEST_ADDR_CIDR: &str = "198.18.240.2/30";
@@ -148,6 +156,7 @@ pub struct SessionCall {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GuestResponse {
+    StorageUnmounted,
     Pong(Status),
     BarrierAck(BarrierAck),
     /// The program was exec'd (the close-on-exec status pipe closed empty).
@@ -170,6 +179,8 @@ pub enum GuestResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Status {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metrics: BTreeMap<String, u64>,
     pub sandbox_id: String,
     pub generation: u64,
     pub kernel_boot_id: String,
@@ -336,3 +347,41 @@ pub fn validate_barrier(b: &Barrier) -> Result<(), String> {
         _ => Err("entropy_hex must carry at least 64 bytes".into()),
     }
 }
+
+/// Incremental command I/O. Identity is checked before looking up the command.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecIo {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub exec_id: String,
+    #[serde(default)]
+    pub stdout_offset: u64,
+    #[serde(default)]
+    pub stderr_offset: u64,
+    #[serde(default)]
+    pub signal: i32,
+    #[serde(default)]
+    pub input_b64: String,
+    #[serde(default)]
+    pub input_eof: bool,
+    #[serde(default)]
+    pub rows: u16,
+    #[serde(default)]
+    pub columns: u16,
+}
+pub mod command_io;
+/// Private host-mediated filesystem attachment, handed directly to the
+/// kernel's 9p fd transport. Tasks never get the channel descriptor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Mount {
+    pub sandbox_id: String,
+    pub generation: u64,
+    pub path: String,
+    pub read_only: bool,
+    pub unmount: bool,
+}
+
+#[cfg(target_os = "macos")]
+pub mod mac_metrics;

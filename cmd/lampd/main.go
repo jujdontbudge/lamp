@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -20,23 +21,35 @@ import (
 	"syscall"
 	"time"
 
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/internal/ci"
 	"lamp.eilmer.si/internal/control"
+	"lamp.eilmer.si/internal/localconfig"
+	"lamp.eilmer.si/internal/relayclient"
 	kitruntime "lamp.eilmer.si/kits"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(); err != nil && !errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(os.Stderr, "lampd:", err)
 		os.Exit(1)
 	}
 }
 func run() error {
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		return json.NewEncoder(os.Stdout).Encode(map[string]string{"version": buildversion.Current(), "api_version": "v1"})
+	}
 	flags := flag.NewFlagSet("lampd", flag.ContinueOnError)
+	flags.Usage = func() {
+		fmt.Fprintln(flags.Output(), "Usage: lampd [flags]\nServe the credentialed Lamp HTTP API on a private Unix socket.\nEnroll a supervisor for VM execution; native sessions require --sessions-config.\nExample: lampd --socket /tmp/lamp/api.sock --state-dir /tmp/lamp/control\nUse lamp --help to create and manage workspaces.\nOptions:")
+		flags.PrintDefaults()
+	}
 	auditReservation := flags.Uint64("audit-reservation-bytes", 24<<20, "trusted per-sandbox retained audit reservation, matching the supervisor policy")
-	ciFile := flags.String("ci-config", "", "private host-enrolled GitHub CI policy JSON")
+	approvalFile := flags.String("approval-actions-config", "", "private owner-enrolled exact webhook actions for one-use approvals")
+	ciFile := flags.String("ci-config", "", "private host-enrolled CI policy JSON (GitLab and other shipped systems)")
 	auditReader := flags.String("audit-reader", "", "trusted absolute executable reading guard audit for sandbox ID and generation")
 	quotaFile := flags.String("quota-file", "", "host admission quota JSON")
+	relayFile := flags.String("relay-config", "", "private outbound relay carrier configuration JSON")
 	fleetFile := flags.String("fleet-config", "", "private enrolled fleet configuration JSON")
 	identityFile := flags.String("identity-file", "", "owner enrollment JSON (owner_id, bootstrap_sha256); bearer is never stored")
 	sessionsFile := flags.String("sessions-config", "", "owner-enrolled harnesses and native session runner locations")
@@ -54,8 +67,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	base := filepath.Join(home, ".local", "state", "lamp-demo")
-	socket := flags.String("socket", filepath.Join(base, "api.sock"), "private local HTTP Unix socket")
+	base := filepath.Join(home, ".local", "lamp", "state")
+	socket := flags.String("socket", localconfig.Socket(), "private local HTTP Unix socket")
 	state := flags.String("state-dir", filepath.Join(base, "control"), "private operation journal directory")
 	exports := flags.String("exports-dir", "", "private broker-published clean reconstruction bundles")
 	readers := map[uint32]string{}
@@ -78,7 +91,7 @@ func run() error {
 	workerID := flags.String("worker-id", "", "assigned supervisor identity")
 	bootID := flags.String("worker-boot-id", "", "enrolled supervisor boot identity")
 	uid := flags.Int("worker-uid", -1, "assigned supervisor OS UID (required)")
-	pid := flags.Int("worker-pid", 0, "assigned supervisor OS PID (required)")
+	pid := flags.Int("worker-pid", 0, "legacy supervisor PID hint (reconnection authenticates UID, worker identity and host boot)")
 	grant := flags.String("grant-id", "", "supervisor-installed control grant ID")
 	timeout := flags.Duration("worker-timeout", 30*time.Second, "absolute operation deadline (max 1m)")
 	auditRelease := flags.String("audit-release", "", "JSON argv of the trusted guard-spool release command (given capture|remove and a sandbox ID)")
@@ -102,6 +115,13 @@ func run() error {
 	if *auditRelease != "" {
 		if err := json.Unmarshal([]byte(*auditRelease), &release); err != nil || len(release) == 0 {
 			return fmt.Errorf("--audit-release must be a JSON argv")
+		}
+	}
+	if len(release) == 0 && *workerSocket != "" {
+		if runtime.GOOS == "darwin" {
+			release = []string{"/usr/bin/true"}
+		} else {
+			return fmt.Errorf("--audit-release is required with --worker-socket: configure tools/guard-audit-release.py for this supervisor's audit directory so deleted sandboxes release capacity")
 		}
 	}
 	if *profileDir != "" {
@@ -229,7 +249,21 @@ func run() error {
 			return err
 		}
 	}
-	service, err := control.Open(control.Config{Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
+	var relayConfig *relayclient.Config
+	if *relayFile != "" {
+		relayConfig, err = relayclient.LoadConfig(*relayFile)
+		if err != nil {
+			return err
+		}
+	}
+	var protected map[string]control.ProtectedAction
+	if *approvalFile != "" {
+		protected, err = control.LoadApprovalWebhooks(*approvalFile)
+		if err != nil {
+			return err
+		}
+	}
+	service, err := control.Open(control.Config{APISocket: *socket, ProtectedActions: protected, Relay: relayConfig, Notifications: notifications, KitsSocket: *kitsSocket, AuditReservationBytes: *auditReservation, CI: ciConfig, Quotas: quotas, AuditReader: *auditReader, Fleet: fleetConfig, Identity: identity, NativeFallback: nativeConfig, StateDir: *state, ExportsDir: *exports, SharedReaders: readers, Sessions: sessions, Worker: control.WorkerConfig{Socket: *workerSocket, WorkerID: *workerID, BootID: *bootID, UID: *uid, PID: *pid, GrantID: *grant, Timeout: *timeout}, StateAdmin: admin, AuditRelease: release, RecoveryPublicKey: *recoveryPublic, RecoveryKeyFile: *recoveryKey, RecoveryImportDir: *recoveryImport, InstallDir: *installDir})
 	if err != nil {
 		return err
 	}
@@ -243,7 +277,20 @@ func run() error {
 		defer fleet.Close()
 		handler = fleet
 	}
-	// Never unlink an existing socket: a second daemon must not steal a live path.
+	// Open holds the state lock. Only ECONNREFUSED proves an old socket stale;
+	// permissions, timeouts and non-socket paths must never cause an unlink.
+	if info, e := os.Lstat(*socket); e == nil && info.Mode()&os.ModeSocket != 0 {
+		c, dialErr := net.DialTimeout("unix", *socket, time.Second)
+		if dialErr == nil {
+			c.Close()
+			return fmt.Errorf("API socket is already served: %s", *socket)
+		}
+		if errors.Is(dialErr, syscall.ECONNREFUSED) {
+			if e := os.Remove(*socket); e != nil {
+				return e
+			}
+		}
+	}
 	listener, err := net.Listen("unix", *socket)
 	if err != nil {
 		return err
@@ -265,18 +312,29 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	relayDone := make(chan struct{})
+	go func() { defer close(relayDone); service.RunRelay(ctx) }()
+	defer func() { stop(); <-relayDone }()
 	done := make(chan error, 1)
-	go func() { done <- server.Serve(authenticated) }()
 	if *dashboardListen != "" {
 		tcp, err := net.Listen("tcp", *dashboardListen)
 		if err != nil {
 			return err
 		}
 		defer tcp.Close()
-		web := &http.Server{Handler: control.RequireBearer(handler), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+		webHandler := control.RequireBearer(handler)
+		host, _, _ := net.SplitHostPort(tcp.Addr().String())
+		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+			webHandler, err = service.LocalDashboard(handler, tcp.Addr().String(), filepath.Dir(*socket))
+			if err != nil {
+				return err
+			}
+		}
+		web := &http.Server{Handler: webHandler, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 		go func() { done <- web.Serve(tcp) }()
-		fmt.Fprintln(os.Stderr, "lampd: dashboard listening on", tcp.Addr())
+		fmt.Fprintln(os.Stderr, "lampd: dashboard listening on", "http://"+tcp.Addr().String()+"/dashboard", "(owner sign-in: file://"+filepath.Join(filepath.Dir(*socket), "dashboard.html")+")")
 	}
+	go func() { done <- server.Serve(authenticated) }()
 	fmt.Fprintln(os.Stderr, "lampd: control API listening on", *socket)
 	select {
 	case err := <-done:

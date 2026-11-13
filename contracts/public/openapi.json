@@ -15031,6 +15031,167 @@
         }
       }
     },
+    "/v1/credential-sources/{credential_source_id}:revoke": {
+      "post": {
+        "operationId": "credential_source_revoke",
+        "x-lamp-scope": "credential_source.revoke",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "credential_source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialSourceRevokeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/docs": {
       "get": {
         "operationId": "docs_read",
@@ -15749,6 +15910,15 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "timeout_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Command runtime limit in milliseconds; zero disables the limit."
+                  },
+                  "stdin_open": {
+                    "type": "boolean",
+                    "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
                   }
                 },
                 "required": [
@@ -15795,6 +15965,15 @@
               "maximum": 25000,
               "format": "uint64",
               "readOnly": true
+            }
+          },
+          {
+            "name": "sandbox_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Only execs belonging to this sandbox."
             }
           }
         ],
@@ -16342,6 +16521,9 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "eof": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -19184,6 +19366,177 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/harnesses:enroll": {
+      "post": {
+        "operationId": "harness_enroll",
+        "x-lamp-scope": "harness.enroll",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HarnessEnrollResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "harness_id": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "credential_source_id": {
+                    "type": "string"
+                  },
+                  "nested_create": {
+                    "type": "boolean"
+                  },
+                  "settings_source_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "connection_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60000
+                  },
+                  "secret_names": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "harness_id"
+                ]
               }
             }
           }
@@ -23453,7 +23806,9 @@
                     "readOnly": true
                   }
                 },
-                "required": []
+                "required": [
+                  "expires_at"
+                ]
               }
             }
           }
@@ -36259,6 +36614,435 @@
         }
       }
     },
+    "/v1/relays/{relay_id}": {
+      "get": {
+        "operationId": "relay_get",
+        "x-lamp-scope": "relay.get",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "relay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelayGetResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/relays": {
+      "get": {
+        "operationId": "relay_list",
+        "x-lamp-scope": "relay.list",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          },
+          {
+            "name": "wait_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 25000,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelayListResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:browser": {
+      "post": {
+        "operationId": "sandbox_browser",
+        "x-lamp-scope": "sandbox.browser",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxBrowserResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "navigate",
+                      "evaluate",
+                      "screenshot",
+                      "close"
+                    ]
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "expression": {
+                    "type": "string",
+                    "maxLength": 16384
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sandboxes": {
       "post": {
         "operationId": "sandbox_create",
@@ -36472,6 +37256,14 @@
                   },
                   "labels": {
                     "$ref": "#/components/schemas/StringMap"
+                  },
+                  "snapshot_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "budget_id": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 },
                 "required": [],
@@ -36481,8 +37273,17 @@
                       "recipe_id"
                     ],
                     "not": {
-                      "required": [
-                        "template_id"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "snapshot_id"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -36491,8 +37292,52 @@
                       "template_id"
                     ],
                     "not": {
-                      "required": [
-                        "recipe_id"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "snapshot_id"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "snapshot_id"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "recipe_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "template_id"
+                          ]
+                        }
                       ]
                     }
                   }
@@ -36537,6 +37382,15 @@
               "maximum": 25000,
               "format": "uint64",
               "readOnly": true
+            }
+          },
+          {
+            "name": "include_deleted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include deleted records retained for 24 hours after confirmed audit release."
             }
           }
         ],
@@ -37227,6 +38081,192 @@
         }
       }
     },
+    "/v1/sandboxes/{sandbox_id}:desktop": {
+      "post": {
+        "operationId": "sandbox_desktop",
+        "x-lamp-scope": "sandbox.desktop",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxDesktopResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "info",
+                      "move",
+                      "click",
+                      "type",
+                      "key",
+                      "screenshot",
+                      "record_start",
+                      "record_stop"
+                    ]
+                  },
+                  "x": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  },
+                  "y": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 16384
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "button": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sandboxes/{sandbox_id}:device-input": {
       "post": {
         "operationId": "sandbox_device_input",
@@ -37860,6 +38900,14 @@
                 "properties": {
                   "path": {
                     "type": "string"
+                  },
+                  "cursor": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
                   }
                 },
                 "required": [
@@ -38003,21 +39051,470 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 18446744073709551615,
-                    "format": "uint64",
-                    "readOnly": true
+                    "format": "uint64"
                   },
                   "length_bytes": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 18446744073709551615,
+                    "format": "uint64"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:file-rename": {
+      "post": {
+        "operationId": "sandbox_file_rename",
+        "x-lamp-scope": "sandbox.file_rename",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxFileRenameResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "destination": {
+                    "type": "string"
                   }
                 },
                 "required": [
                   "path",
-                  "offset_bytes",
-                  "length_bytes"
+                  "destination"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:file-search": {
+      "post": {
+        "operationId": "sandbox_file_search",
+        "x-lamp-scope": "sandbox.file_search",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxFileSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "contents": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "path",
+                  "query"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:file-stat": {
+      "post": {
+        "operationId": "sandbox_file_stat",
+        "x-lamp-scope": "sandbox.file_stat",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxFileStatResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
                 ]
               }
             }
@@ -38218,6 +39715,152 @@
                       }
                     }
                   }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:file-watch": {
+      "post": {
+        "operationId": "sandbox_file_watch",
+        "x-lamp-scope": "sandbox.file_watch",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxFileWatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "type": "string"
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30000
+                  }
+                },
+                "required": [
+                  "path"
                 ]
               }
             }
@@ -38590,6 +40233,607 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:kit": {
+      "post": {
+        "operationId": "sandbox_kit",
+        "x-lamp-scope": "sandbox.kit",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxKitResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "kit": {
+                    "type": "string",
+                    "enum": [
+                      "browser",
+                      "desktop",
+                      "docker",
+                      "python",
+                      "node",
+                      "go",
+                      "rust",
+                      "c",
+                      "lsp"
+                    ]
+                  }
+                },
+                "required": [
+                  "kit"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}/logs": {
+      "get": {
+        "operationId": "sandbox_logs",
+        "x-lamp-scope": "sandbox.logs",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 720
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxLogsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:lsp": {
+      "post": {
+        "operationId": "sandbox_lsp",
+        "x-lamp-scope": "sandbox.lsp",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxLspResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "start",
+                      "open",
+                      "symbols",
+                      "completions",
+                      "diagnostics",
+                      "close",
+                      "stop"
+                    ]
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "line": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "character": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}/metrics": {
+      "get": {
+        "operationId": "sandbox_metrics",
+        "x-lamp-scope": "sandbox.metrics",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 720
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxMetricsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -39124,6 +41368,171 @@
                     "continuation_task_id"
                   ]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sandboxes/{sandbox_id}:run-code": {
+      "post": {
+        "operationId": "sandbox_run_code",
+        "x-lamp-scope": "sandbox.run_code",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxRunCodeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "code": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "lang": {
+                    "type": "string",
+                    "enum": [
+                      "python"
+                    ]
+                  },
+                  "context": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+                  }
+                },
+                "required": [
+                  "code"
+                ]
               }
             }
           }
@@ -40764,6 +43173,312 @@
         }
       }
     },
+    "/v1/secrets:request": {
+      "post": {
+        "operationId": "secret_request",
+        "x-lamp-scope": "secret.request",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretRequestResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "hosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60000
+                  }
+                },
+                "required": [
+                  "name",
+                  "hosts"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/secrets:set": {
+      "post": {
+        "operationId": "secret_set",
+        "x-lamp-scope": "secret.set",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretSetResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string",
+                    "writeOnly": true
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60000
+                  },
+                  "hosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "value"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{session_id}:attach": {
       "post": {
         "operationId": "session_attach",
@@ -40927,6 +43642,167 @@
                 "required": [
                   "lease_id"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{session_id}:cancel": {
+      "post": {
+        "operationId": "session_cancel",
+        "x-lamp-scope": "session.cancel",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCancelResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  }
+                },
+                "required": []
               }
             }
           }
@@ -41289,6 +44165,14 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 32768
+                  },
+                  "repository": {
+                    "type": "string",
+                    "description": "Public HTTPS git repository cloned into this session workspace."
                   }
                 },
                 "required": [
@@ -42459,6 +45343,174 @@
         }
       }
     },
+    "/v1/sessions/{session_id}:message": {
+      "post": {
+        "operationId": "session_message",
+        "x-lamp-scope": "session.message",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64",
+              "readOnly": true
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMessageResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615,
+                    "format": "uint64",
+                    "readOnly": true
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32768
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions/{session_id}:resize": {
       "post": {
         "operationId": "session_resize",
@@ -42804,6 +45856,16 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "harness_id": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "side": {
+                    "type": "boolean",
+                    "description": "Fresh conversation sharing the parent workspace and branch."
                   }
                 },
                 "required": []
@@ -42977,6 +46039,133 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{session_id}/teleport-check": {
+      "get": {
+        "operationId": "session_teleport_check",
+        "x-lamp-scope": "session.teleport",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "location",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Location"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTeleportCheckResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -44059,6 +47248,173 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/settings-sources/{settings_source_id}:apply": {
+      "post": {
+        "operationId": "settings_source_apply",
+        "x-lamp-scope": "settings_source.apply",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [
+          {
+            "name": "settings_source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted Operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsSourceApplyResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "session_id": {
+                    "type": "string"
+                  },
+                  "settings_change_id": {
+                    "type": "string"
+                  },
+                  "base_revision": {
+                    "type": "string"
+                  },
+                  "selected_paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "wait_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 60000
+                  }
+                },
+                "required": [
+                  "session_id",
+                  "settings_change_id",
+                  "base_revision",
+                  "selected_paths"
+                ]
               }
             }
           }
@@ -50189,6 +53545,10 @@
                     "maximum": 18446744073709551615,
                     "format": "uint64",
                     "readOnly": true
+                  },
+                  "version": {
+                    "type": "string",
+                    "description": "Signed release version in the enrolled installer mirror. Supply version or release_digest, not both."
                   }
                 },
                 "required": []
@@ -50772,6 +54132,116 @@
                   }
                 },
                 "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/version": {
+      "get": {
+        "operationId": "version_get",
+        "x-lamp-scope": "api.describe",
+        "x-lamp-authorization": "authenticated_scope",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionGetResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Lamp error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -52865,14 +56335,15 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 18446744073709551615,
-            "format": "uint64"
+            "format": "uint64",
+            "default": 4096,
+            "x-lamp-concrete-default": true
           }
         },
         "required": [
           "vcpus",
           "memory_mib",
-          "disk_gib",
-          "pids_max"
+          "disk_gib"
         ]
       },
       "Capacity": {
@@ -53309,7 +56780,20 @@
                 "warm_pool.delete",
                 "warm_pool.get",
                 "warm_pool.list",
-                "warm_pool.update"
+                "warm_pool.update",
+                "sandbox.file_stat",
+                "sandbox.file_search",
+                "sandbox.file_watch",
+                "sandbox.file_rename",
+                "sandbox.kit",
+                "sandbox.run_code",
+                "sandbox.lsp",
+                "sandbox.browser",
+                "sandbox.desktop",
+                "sandbox.metrics",
+                "sandbox.logs",
+                "session.message",
+                "session.cancel"
               ]
             }
           },
@@ -53390,7 +56874,8 @@
             "enum": [
               "suspend",
               "delete",
-              "keep"
+              "keep",
+              "stop"
             ]
           },
           "idle_grace_seconds": {
@@ -55193,6 +58678,20 @@
           },
           "update_policy": {
             "$ref": "#/components/schemas/UpdatePolicy"
+          },
+          "unavailable_host_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "readOnly": true
+          },
+          "stranded_sandbox_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "readOnly": true
           }
         },
         "required": [
@@ -55336,6 +58835,10 @@
             "type": "string",
             "format": "date-time",
             "pattern": "Z$",
+            "readOnly": true
+          },
+          "version": {
+            "type": "string",
             "readOnly": true
           }
         },
@@ -57056,6 +60559,35 @@
             "items": {
               "type": "string"
             }
+          },
+          "saved_state_until": {
+            "type": "string",
+            "readOnly": true
+          },
+          "idle_countdown": {
+            "type": "object",
+            "additionalProperties": false,
+            "readOnly": true,
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "grace_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18446744073709551615,
+                "format": "uint64"
+              },
+              "idle_since": {
+                "type": "string"
+              },
+              "fires_at": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": "string"
+              }
+            }
           }
         },
         "required": [
@@ -57452,6 +60984,33 @@
           "output_cursor": {
             "type": "string",
             "readOnly": true
+          },
+          "stdout_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stderr_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "output_truncated": {
+            "type": "boolean"
+          },
+          "timed_out": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Command runtime limit in milliseconds; zero disables the limit."
+          },
+          "failure_reason": {
+            "type": "string",
+            "readOnly": true
+          },
+          "stdin_open": {
+            "type": "boolean",
+            "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
           }
         },
         "required": [
@@ -57598,6 +61157,50 @@
           "continuation_ref": {
             "type": "string",
             "readOnly": true
+          },
+          "repository": {
+            "type": "string"
+          },
+          "shared_session_id": {
+            "type": "string"
+          },
+          "shared_epoch": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "last_turn": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "interrupted"
+            ]
+          },
+          "transfer": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "bytes_transferred": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artifact_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "safe_to_close_source": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "phase",
+              "bytes_transferred",
+              "artifact_bytes",
+              "safe_to_close_source"
+            ]
           }
         },
         "required": [
@@ -60386,6 +63989,17 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "last_run_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true,
+            "description": "UTC occurrence time of the latest started run."
+          },
+          "last_run_status": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Latest run: running, success, failure or cancelled."
           }
         },
         "required": [
@@ -61770,7 +65384,8 @@
           "QUORUM_REQUIRED",
           "IDEMPOTENCY_HOME_UNAVAILABLE",
           "TOKEN_HOME_UNAVAILABLE",
-          "AUDIT_UNAVAILABLE"
+          "AUDIT_UNAVAILABLE",
+          "FAILED_PRECONDITION"
         ]
       },
       "ErrorDetail": {
@@ -63831,7 +67446,8 @@
           }
         },
         "required": [
-          "idempotency_key"
+          "idempotency_key",
+          "expires_at"
         ]
       },
       "KeyCreateResult": {
@@ -66123,6 +69739,10 @@
             "maximum": 25000,
             "format": "uint64",
             "readOnly": true
+          },
+          "include_deleted": {
+            "type": "boolean",
+            "description": "Include deleted records retained for 24 hours after confirmed audit release."
           }
         }
       },
@@ -66243,6 +69863,14 @@
           },
           "labels": {
             "$ref": "#/components/schemas/StringMap"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "budget_id": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -66254,8 +69882,17 @@
               "recipe_id"
             ],
             "not": {
-              "required": [
-                "template_id"
+              "anyOf": [
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "snapshot_id"
+                  ]
+                }
               ]
             }
           },
@@ -66264,8 +69901,52 @@
               "template_id"
             ],
             "not": {
-              "required": [
-                "recipe_id"
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "snapshot_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "required": [
+              "snapshot_id"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "recipe_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "template_id"
+                  ]
+                }
               ]
             }
           }
@@ -67198,6 +70879,10 @@
             "maximum": 25000,
             "format": "uint64",
             "readOnly": true
+          },
+          "sandbox_id": {
+            "type": "string",
+            "description": "Only execs belonging to this sandbox."
           }
         }
       },
@@ -67294,6 +70979,15 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Command runtime limit in milliseconds; zero disables the limit."
+          },
+          "stdin_open": {
+            "type": "boolean",
+            "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
           }
         },
         "required": [
@@ -67550,6 +71244,14 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 32768
+          },
+          "repository": {
+            "type": "string",
+            "description": "Public HTTPS git repository cloned into this session workspace."
           }
         },
         "required": [
@@ -76223,6 +79925,10 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "version": {
+            "type": "string",
+            "description": "Signed release version in the enrolled installer mirror. Supply version or release_digest, not both."
           }
         },
         "required": [
@@ -78693,22 +82399,18 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 18446744073709551615,
-            "format": "uint64",
-            "readOnly": true
+            "format": "uint64"
           },
           "length_bytes": {
             "type": "integer",
             "minimum": 0,
             "maximum": 18446744073709551615,
-            "format": "uint64",
-            "readOnly": true
+            "format": "uint64"
           }
         },
         "required": [
           "sandbox_id",
-          "path",
-          "offset_bytes",
-          "length_bytes"
+          "path"
         ]
       },
       "SandboxFileReadResult": {
@@ -78905,6 +82607,14 @@
           },
           "path": {
             "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
           }
         },
         "required": [
@@ -79230,6 +82940,9 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "eof": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -79827,6 +83540,16 @@
             "maximum": 18446744073709551615,
             "format": "uint64",
             "readOnly": true
+          },
+          "harness_id": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "side": {
+            "type": "boolean",
+            "description": "Fresh conversation sharing the parent workspace and branch."
           }
         },
         "required": [
@@ -85580,6 +89303,1440 @@
         "required": [
           "request_id",
           "data"
+        ]
+      },
+      "Relay": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "kind": {
+            "type": "string",
+            "const": "relay",
+            "readOnly": true
+          },
+          "fleet_id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$",
+            "readOnly": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "Z$",
+            "readOnly": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "disconnected"
+            ],
+            "readOnly": true
+          },
+          "labels": {
+            "$ref": "#/components/schemas/StringMap"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ],
+            "default": "private"
+          },
+          "host_id": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "fleet_id",
+          "owner_id",
+          "revision",
+          "created_at",
+          "updated_at",
+          "state",
+          "visibility",
+          "labels"
+        ]
+      },
+      "RelayGetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "relay_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "relay_id"
+        ]
+      },
+      "RelayGetResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Relay"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
+        ]
+      },
+      "RelayListInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 25000,
+            "format": "uint64",
+            "readOnly": true
+          }
+        }
+      },
+      "RelayListResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Relay"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SandboxFileStatInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "path"
+        ]
+      },
+      "SandboxFileStatResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SandboxFileSearchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "contents": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "path",
+          "query"
+        ]
+      },
+      "SandboxFileSearchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SandboxFileWatchInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30000
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "path"
+        ]
+      },
+      "SandboxFileWatchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SandboxFileRenameInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "destination": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "path",
+          "idempotency_key",
+          "expected_revision",
+          "destination"
+        ]
+      },
+      "SandboxFileRenameCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SandboxFileRenameResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxFileRenameCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "VersionGetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "VersionGetResult": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "SandboxKitInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "kit": {
+            "type": "string",
+            "enum": [
+              "browser",
+              "desktop",
+              "docker",
+              "python",
+              "node",
+              "go",
+              "rust",
+              "c",
+              "lsp"
+            ]
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "idempotency_key",
+          "kit"
+        ]
+      },
+      "SandboxKitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxKitCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SandboxKitCompletion": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "SandboxRunCodeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 32768
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "python"
+            ]
+          },
+          "context": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "idempotency_key",
+          "code"
+        ]
+      },
+      "SandboxRunCodeResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxRunCodeCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SandboxRunCodeCompletion": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "SandboxLspInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "open",
+              "symbols",
+              "completions",
+              "diagnostics",
+              "close",
+              "stop"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 32768
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "character": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "idempotency_key",
+          "action"
+        ]
+      },
+      "SandboxLspResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxLspCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SandboxLspCompletion": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "SandboxBrowserInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "navigate",
+              "evaluate",
+              "screenshot",
+              "close"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "expression": {
+            "type": "string",
+            "maxLength": 16384
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "idempotency_key",
+          "action"
+        ]
+      },
+      "SandboxBrowserResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxBrowserCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SandboxBrowserCompletion": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "SandboxDesktopInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "info",
+              "move",
+              "click",
+              "type",
+              "key",
+              "screenshot",
+              "record_start",
+              "record_stop"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8192
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8192
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 16384
+          },
+          "key": {
+            "type": "string"
+          },
+          "button": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "sandbox_id",
+          "idempotency_key",
+          "action"
+        ]
+      },
+      "SandboxDesktopResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SandboxDesktopCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SandboxDesktopCompletion": {
+        "$ref": "#/components/schemas/AdapterDocument"
+      },
+      "HarnessEnrollInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "harness_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "credential_source_id": {
+            "type": "string"
+          },
+          "nested_create": {
+            "type": "boolean"
+          },
+          "settings_source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "connection_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "secret_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "harness_id",
+          "idempotency_key"
+        ]
+      },
+      "HarnessEnrollCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "harness_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "harness_id"
+        ]
+      },
+      "HarnessEnrollResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/HarnessEnrollCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SecretSetInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "idempotency_key"
+        ]
+      },
+      "SecretSetCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SecretSetResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SecretSetCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SettingsSourceApplyInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "settings_source_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "settings_change_id": {
+            "type": "string"
+          },
+          "base_revision": {
+            "type": "string"
+          },
+          "selected_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          }
+        },
+        "required": [
+          "settings_source_id",
+          "session_id",
+          "settings_change_id",
+          "base_revision",
+          "selected_paths",
+          "idempotency_key"
+        ]
+      },
+      "SettingsSourceApplyCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "settings_source_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "settings_source_id"
+        ]
+      },
+      "SettingsSourceApplyResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SettingsSourceApplyCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SecretRequestInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60000
+          }
+        },
+        "required": [
+          "name",
+          "hosts",
+          "idempotency_key"
+        ]
+      },
+      "SecretRequestCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entry_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_url"
+        ]
+      },
+      "SecretRequestResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SecretRequestCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "CredentialSourceRevokeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "credential_source_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "credential_source_id",
+          "idempotency_key",
+          "expected_revision"
+        ]
+      },
+      "CredentialSourceRevokeResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/CredentialSourceRevokeCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "CredentialSourceRevokeCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SandboxMetricsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720
+          }
+        },
+        "required": [
+          "sandbox_id"
+        ]
+      },
+      "SandboxMetricsResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SandboxLogsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sandbox_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 720
+          }
+        },
+        "required": [
+          "sandbox_id"
+        ]
+      },
+      "SandboxLogsResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "request_id"
+        ]
+      },
+      "SessionMessageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32768
+          }
+        },
+        "required": [
+          "session_id",
+          "idempotency_key",
+          "expected_revision",
+          "text"
+        ]
+      },
+      "SessionMessageResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SessionEndCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SessionMessageCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SessionCancelInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "wait_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          },
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615,
+            "format": "uint64",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "session_id",
+          "idempotency_key",
+          "expected_revision"
+        ]
+      },
+      "SessionCancelResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "resource_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceRef"
+            }
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SessionEndCompletion"
+          }
+        },
+        "required": [
+          "operation_id",
+          "resource_ids",
+          "request_id",
+          "replayed"
+        ]
+      },
+      "SessionCancelCompletion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "SessionTeleportCheckInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "location": {
+            "$ref": "#/components/schemas/Location"
+          }
+        },
+        "required": [
+          "session_id",
+          "location"
+        ]
+      },
+      "SessionTeleportCheckResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Session"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "request_id"
         ]
       }
     }

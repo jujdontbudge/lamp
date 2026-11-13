@@ -74,6 +74,28 @@ fn take_bool(args: &mut Vec<String>, name: &str) -> bool {
 
 fn main() {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args.len() == 1 && (args[0] == "version" || args[0] == "--version") {
+        println!("{}", lamp_supervisor::release_version());
+        return;
+    }
+    if args
+        .iter()
+        .take_while(|arg| arg.as_str() != "--")
+        .any(|arg| arg == "--help" || arg == "-h")
+        || args.first().is_some_and(|arg| arg == "help")
+    {
+        for line in include_str!("main.rs")
+            .lines()
+            .take_while(|line| line.starts_with("//!"))
+        {
+            let text = line.trim_start_matches("//!").trim_start();
+            if !text.starts_with("```") {
+                println!("{text}");
+            }
+        }
+        return;
+    }
+
     if args.is_empty() {
         die("usage: lamp-supervisor serve|seed-import|template-build|ctl ...");
     }
@@ -157,13 +179,16 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
     if caller_uid > u64::from(u32::MAX) {
         die("grant-install needs --caller-uid UID");
     }
+    let pinned = args.iter().any(|a| a == "--generation");
     let generation = num(&mut args, "--generation", 1);
-    let max_generation = take_flag(&mut args, "--max-generation").map(|v| {
-        v.parse::<u64>()
-            .ok()
-            .filter(|n| *n >= generation)
-            .unwrap_or_else(|| die("bad --max-generation"))
-    });
+    let max_generation = take_flag(&mut args, "--max-generation")
+        .map(|v| {
+            v.parse::<u64>()
+                .ok()
+                .filter(|n| *n >= generation)
+                .unwrap_or_else(|| die("bad --max-generation"))
+        })
+        .or(if pinned { None } else { Some(u64::MAX) });
     let policy_revision = num(&mut args, "--policy-revision", 1);
     let ttl_s = num(&mut args, "--ttl-s", 24 * 3600);
     let prefix = take_flag(&mut args, "--sandbox-prefix").unwrap_or_else(|| "sb_".into());
@@ -173,10 +198,12 @@ fn grant_command(cmd: &str, store: &std::path::Path, mut args: Vec<String>) {
     let now = lamp_engine::fsutil::now_ms();
     let grant = ControlGrant {
         format: FORMAT.into(),
-        grant_id: format!(
-            "gr_{}",
-            lamp_init::hex_encode(&lamp_engine::fsutil::random_bytes::<16>())
-        ),
+        grant_id: take_flag(&mut args, "--grant-id").unwrap_or_else(|| {
+            format!(
+                "gr_{}",
+                lamp_init::hex_encode(&lamp_engine::fsutil::random_bytes::<16>())
+            )
+        }),
         caller_uid: caller_uid as u32,
         sandbox_prefix: prefix,
         generation,
@@ -650,6 +677,7 @@ impl Ctl {
                 engine_id: String::new(),
                 handles: vec![],
                 devices: vec![],
+                ..Default::default()
             }),
         )?;
         self.try_restore(sandbox, template)
@@ -683,6 +711,7 @@ impl Ctl {
                     argv: argv.iter().map(|s| s.to_string()).collect(),
                     cwd: String::new(),
                     env: Default::default(),
+                    ..Default::default()
                 }),
             )
             .unwrap_or_else(|e| die(e));

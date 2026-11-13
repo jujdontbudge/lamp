@@ -99,7 +99,14 @@ func unique(d *json.Decoder) error {
 	}
 	return nil
 }
-func Validate(name string, v any) error { return validate(definitions[name], v, name) }
+func Validate(name string, v any) error {
+	if name == "SandboxCreateInput" {
+		if in, ok := v.(map[string]any); ok && in["template_id"] != nil && in["recipe_id"] != nil {
+			return fmt.Errorf("give template_id or recipe_id, not both")
+		}
+	}
+	return validate(definitions[name], v, name)
+}
 func validate(s map[string]any, v any, path string) error {
 	if branches, ok := s["allOf"].([]any); ok {
 		for _, branch := range branches {
@@ -213,6 +220,9 @@ func validate(s map[string]any, v any, path string) error {
 			}
 		}
 		for k, x := range m {
+			if strings.ContainsRune(k, 0) {
+				return fmt.Errorf("%s: field names must not contain NUL", path)
+			}
 			if p, ok := props[k].(map[string]any); ok {
 				if err := validate(p, x, path+"."+k); err != nil {
 					return err
@@ -236,8 +246,8 @@ func validate(s map[string]any, v any, path string) error {
 				return fail()
 			}
 		}
-		for _, x := range a {
-			if err := validate(s["items"].(map[string]any), x, path); err != nil {
+		for i, x := range a {
+			if err := validate(s["items"].(map[string]any), x, fmt.Sprintf("%s[%d]", path, i)); err != nil {
 				return err
 			}
 		}
@@ -245,6 +255,9 @@ func validate(s map[string]any, v any, path string) error {
 		x, ok := v.(string)
 		if !ok {
 			return fail()
+		}
+		if strings.ContainsRune(x, 0) {
+			return fmt.Errorf("%s: must not contain NUL", path)
 		}
 		for _, bound := range []string{"minLength", "maxLength"} {
 			if b, ok := s[bound].(json.Number); ok {
@@ -332,7 +345,16 @@ func Request(op api.OperationDescriptor, in map[string]any) (string, map[string]
 	if strings.EqualFold(op.Method, "get") {
 		q := url.Values{}
 		for k, v := range in {
-			q.Set(k, fmt.Sprint(v))
+			switch v.(type) {
+			case map[string]any, []any, []string:
+				raw, err := json.Marshal(v)
+				if err != nil {
+					return "", nil, nil, err
+				}
+				q.Set(k, string(raw))
+			default:
+				q.Set(k, fmt.Sprint(v))
+			}
 		}
 		if len(q) > 0 {
 			path += "?" + q.Encode()
@@ -394,11 +416,25 @@ func Query(op api.OperationDescriptor, q url.Values, in map[string]any) error {
 		if _, exists := in[k]; exists {
 			return fmt.Errorf("duplicate selector")
 		}
-		if p["type"] == "integer" {
+		if ref, ok := p["$ref"].(string); ok {
+			p = Definition(strings.TrimPrefix(ref, "#/$defs/"))
+		}
+		if p["type"] == "object" {
+			value, err := Decode([]byte(values[0]))
+			if err != nil {
+				return err
+			}
+			in[k] = value
+		} else if p["type"] == "integer" {
 			if _, err := strconv.ParseUint(values[0], 10, 64); err != nil {
 				return err
 			}
 			in[k] = json.Number(values[0])
+		} else if p["type"] == "boolean" {
+			if values[0] != "true" && values[0] != "false" {
+				return fmt.Errorf("invalid boolean query field %s", k)
+			}
+			in[k] = values[0] == "true"
 		} else {
 			in[k] = values[0]
 		}

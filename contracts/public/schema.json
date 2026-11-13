@@ -123,14 +123,15 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 18446744073709551615,
-          "format": "uint64"
+          "format": "uint64",
+          "default": 4096,
+          "x-lamp-concrete-default": true
         }
       },
       "required": [
         "vcpus",
         "memory_mib",
-        "disk_gib",
-        "pids_max"
+        "disk_gib"
       ]
     },
     "Capacity": {
@@ -567,7 +568,20 @@
               "warm_pool.delete",
               "warm_pool.get",
               "warm_pool.list",
-              "warm_pool.update"
+              "warm_pool.update",
+              "sandbox.file_stat",
+              "sandbox.file_search",
+              "sandbox.file_watch",
+              "sandbox.file_rename",
+              "sandbox.kit",
+              "sandbox.run_code",
+              "sandbox.lsp",
+              "sandbox.browser",
+              "sandbox.desktop",
+              "sandbox.metrics",
+              "sandbox.logs",
+              "session.message",
+              "session.cancel"
             ]
           }
         },
@@ -648,7 +662,8 @@
           "enum": [
             "suspend",
             "delete",
-            "keep"
+            "keep",
+            "stop"
           ]
         },
         "idle_grace_seconds": {
@@ -2451,6 +2466,20 @@
         },
         "update_policy": {
           "$ref": "#/$defs/UpdatePolicy"
+        },
+        "unavailable_host_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
+        },
+        "stranded_sandbox_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "readOnly": true
         }
       },
       "required": [
@@ -2594,6 +2623,10 @@
           "type": "string",
           "format": "date-time",
           "pattern": "Z$",
+          "readOnly": true
+        },
+        "version": {
+          "type": "string",
           "readOnly": true
         }
       },
@@ -4314,6 +4347,35 @@
           "items": {
             "type": "string"
           }
+        },
+        "saved_state_until": {
+          "type": "string",
+          "readOnly": true
+        },
+        "idle_countdown": {
+          "type": "object",
+          "additionalProperties": false,
+          "readOnly": true,
+          "properties": {
+            "action": {
+              "type": "string"
+            },
+            "grace_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615,
+              "format": "uint64"
+            },
+            "idle_since": {
+              "type": "string"
+            },
+            "fires_at": {
+              "type": "string"
+            },
+            "expires_at": {
+              "type": "string"
+            }
+          }
         }
       },
       "required": [
@@ -4710,6 +4772,33 @@
         "output_cursor": {
           "type": "string",
           "readOnly": true
+        },
+        "stdout_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stderr_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_truncated": {
+          "type": "boolean"
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Command runtime limit in milliseconds; zero disables the limit."
+        },
+        "failure_reason": {
+          "type": "string",
+          "readOnly": true
+        },
+        "stdin_open": {
+          "type": "boolean",
+          "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
         }
       },
       "required": [
@@ -4856,6 +4945,50 @@
         "continuation_ref": {
           "type": "string",
           "readOnly": true
+        },
+        "repository": {
+          "type": "string"
+        },
+        "shared_session_id": {
+          "type": "string"
+        },
+        "shared_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_turn": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "transfer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "phase": {
+              "type": "string"
+            },
+            "bytes_transferred": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "artifact_bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "safe_to_close_source": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "phase",
+            "bytes_transferred",
+            "artifact_bytes",
+            "safe_to_close_source"
+          ]
         }
       },
       "required": [
@@ -7644,6 +7777,17 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "last_run_at": {
+          "type": "string",
+          "format": "date-time",
+          "readOnly": true,
+          "description": "UTC occurrence time of the latest started run."
+        },
+        "last_run_status": {
+          "type": "string",
+          "readOnly": true,
+          "description": "Latest run: running, success, failure or cancelled."
         }
       },
       "required": [
@@ -9028,7 +9172,8 @@
         "QUORUM_REQUIRED",
         "IDEMPOTENCY_HOME_UNAVAILABLE",
         "TOKEN_HOME_UNAVAILABLE",
-        "AUDIT_UNAVAILABLE"
+        "AUDIT_UNAVAILABLE",
+        "FAILED_PRECONDITION"
       ]
     },
     "ErrorDetail": {
@@ -11089,7 +11234,8 @@
         }
       },
       "required": [
-        "idempotency_key"
+        "idempotency_key",
+        "expires_at"
       ]
     },
     "KeyCreateResult": {
@@ -13381,6 +13527,10 @@
           "maximum": 25000,
           "format": "uint64",
           "readOnly": true
+        },
+        "include_deleted": {
+          "type": "boolean",
+          "description": "Include deleted records retained for 24 hours after confirmed audit release."
         }
       }
     },
@@ -13501,6 +13651,14 @@
         },
         "labels": {
           "$ref": "#/$defs/StringMap"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budget_id": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -13512,8 +13670,17 @@
             "recipe_id"
           ],
           "not": {
-            "required": [
-              "template_id"
+            "anyOf": [
+              {
+                "required": [
+                  "template_id"
+                ]
+              },
+              {
+                "required": [
+                  "snapshot_id"
+                ]
+              }
             ]
           }
         },
@@ -13522,8 +13689,52 @@
             "template_id"
           ],
           "not": {
-            "required": [
-              "recipe_id"
+            "anyOf": [
+              {
+                "required": [
+                  "recipe_id"
+                ]
+              },
+              {
+                "required": [
+                  "snapshot_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "snapshot_id"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "recipe_id"
+                ]
+              },
+              {
+                "required": [
+                  "template_id"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "recipe_id"
+                ]
+              },
+              {
+                "required": [
+                  "template_id"
+                ]
+              }
             ]
           }
         }
@@ -14456,6 +14667,10 @@
           "maximum": 25000,
           "format": "uint64",
           "readOnly": true
+        },
+        "sandbox_id": {
+          "type": "string",
+          "description": "Only execs belonging to this sandbox."
         }
       }
     },
@@ -14552,6 +14767,15 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Command runtime limit in milliseconds; zero disables the limit."
+        },
+        "stdin_open": {
+          "type": "boolean",
+          "description": "Keep a binary stdin stream open for exec input; false closes stdin unless a blob is supplied."
         }
       },
       "required": [
@@ -14808,6 +15032,14 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "repository": {
+          "type": "string",
+          "description": "Public HTTPS git repository cloned into this session workspace."
         }
       },
       "required": [
@@ -23481,6 +23713,10 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "version": {
+          "type": "string",
+          "description": "Signed release version in the enrolled installer mirror. Supply version or release_digest, not both."
         }
       },
       "required": [
@@ -25951,22 +26187,18 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 18446744073709551615,
-          "format": "uint64",
-          "readOnly": true
+          "format": "uint64"
         },
         "length_bytes": {
           "type": "integer",
           "minimum": 0,
           "maximum": 18446744073709551615,
-          "format": "uint64",
-          "readOnly": true
+          "format": "uint64"
         }
       },
       "required": [
         "sandbox_id",
-        "path",
-        "offset_bytes",
-        "length_bytes"
+        "path"
       ]
     },
     "SandboxFileReadResult": {
@@ -26163,6 +26395,14 @@
         },
         "path": {
           "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
         }
       },
       "required": [
@@ -26488,6 +26728,9 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "eof": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -27085,6 +27328,16 @@
           "maximum": 18446744073709551615,
           "format": "uint64",
           "readOnly": true
+        },
+        "harness_id": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "side": {
+          "type": "boolean",
+          "description": "Fresh conversation sharing the parent workspace and branch."
         }
       },
       "required": [
@@ -32839,6 +33092,1440 @@
         "request_id",
         "data"
       ]
+    },
+    "Relay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "kind": {
+          "type": "string",
+          "const": "relay",
+          "readOnly": true
+        },
+        "fleet_id": {
+          "type": "string",
+          "readOnly": true
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$",
+          "readOnly": true
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$",
+          "readOnly": true
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "connected",
+            "disconnected"
+          ],
+          "readOnly": true
+        },
+        "labels": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "private",
+            "shared"
+          ],
+          "default": "private"
+        },
+        "host_id": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "fleet_id",
+        "owner_id",
+        "revision",
+        "created_at",
+        "updated_at",
+        "state",
+        "visibility",
+        "labels"
+      ]
+    },
+    "RelayGetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "relay_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "relay_id"
+      ]
+    },
+    "RelayGetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Relay"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "request_id"
+      ]
+    },
+    "RelayListInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 25000,
+          "format": "uint64",
+          "readOnly": true
+        }
+      }
+    },
+    "RelayListResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Relay"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileStatInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path"
+      ]
+    },
+    "SandboxFileStatResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileSearchInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "contents": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path",
+        "query"
+      ]
+    },
+    "SandboxFileSearchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileWatchInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path"
+      ]
+    },
+    "SandboxFileWatchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          }
+        },
+        "next_cursor": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxFileRenameInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "destination": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "path",
+        "idempotency_key",
+        "expected_revision",
+        "destination"
+      ]
+    },
+    "SandboxFileRenameCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SandboxFileRenameResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxFileRenameCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "VersionGetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "VersionGetResult": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxKitInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "kit": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "desktop",
+            "docker",
+            "python",
+            "node",
+            "go",
+            "rust",
+            "c",
+            "lsp"
+          ]
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "kit"
+      ]
+    },
+    "SandboxKitResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxKitCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxKitCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxRunCodeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "lang": {
+          "type": "string",
+          "enum": [
+            "python"
+          ]
+        },
+        "context": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "code"
+      ]
+    },
+    "SandboxRunCodeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxRunCodeCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxRunCodeCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxLspInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "start",
+            "open",
+            "symbols",
+            "completions",
+            "diagnostics",
+            "close",
+            "stop"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 32768
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxLspResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxLspCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxLspCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxBrowserInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "navigate",
+            "evaluate",
+            "screenshot",
+            "close"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "string",
+          "maxLength": 16384
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxBrowserResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxBrowserCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxBrowserCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "SandboxDesktopInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "info",
+            "move",
+            "click",
+            "type",
+            "key",
+            "screenshot",
+            "record_start",
+            "record_stop"
+          ]
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "key": {
+          "type": "string"
+        },
+        "button": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "idempotency_key",
+        "action"
+      ]
+    },
+    "SandboxDesktopResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SandboxDesktopCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SandboxDesktopCompletion": {
+      "$ref": "#/$defs/AdapterDocument"
+    },
+    "HarnessEnrollInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "harness_id": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "credential_source_id": {
+          "type": "string"
+        },
+        "nested_create": {
+          "type": "boolean"
+        },
+        "settings_source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "connection_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "secret_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "harness_id",
+        "idempotency_key"
+      ]
+    },
+    "HarnessEnrollCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "harness_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "harness_id"
+      ]
+    },
+    "HarnessEnrollResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/HarnessEnrollCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SecretSetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "writeOnly": true
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "idempotency_key"
+      ]
+    },
+    "SecretSetCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "SecretSetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SecretSetCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SettingsSourceApplyInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "settings_source_id": {
+          "type": "string"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "settings_change_id": {
+          "type": "string"
+        },
+        "base_revision": {
+          "type": "string"
+        },
+        "selected_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "settings_source_id",
+        "session_id",
+        "settings_change_id",
+        "base_revision",
+        "selected_paths",
+        "idempotency_key"
+      ]
+    },
+    "SettingsSourceApplyCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "settings_source_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "settings_source_id"
+      ]
+    },
+    "SettingsSourceApplyResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SettingsSourceApplyCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SecretRequestInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "name",
+        "hosts",
+        "idempotency_key"
+      ]
+    },
+    "SecretRequestCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entry_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry_url"
+      ]
+    },
+    "SecretRequestResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SecretRequestCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "CredentialSourceRevokeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "credential_source_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "credential_source_id",
+        "idempotency_key",
+        "expected_revision"
+      ]
+    },
+    "CredentialSourceRevokeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/CredentialSourceRevokeCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "CredentialSourceRevokeCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SandboxMetricsInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 720
+        }
+      },
+      "required": [
+        "sandbox_id"
+      ]
+    },
+    "SandboxMetricsResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SandboxLogsInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 720
+        }
+      },
+      "required": [
+        "sandbox_id"
+      ]
+    },
+    "SandboxLogsResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "items",
+        "request_id"
+      ]
+    },
+    "SessionMessageInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      },
+      "required": [
+        "session_id",
+        "idempotency_key",
+        "expected_revision",
+        "text"
+      ]
+    },
+    "SessionMessageResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionEndCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SessionMessageCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SessionCancelInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "format": "uint64",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "session_id",
+        "idempotency_key",
+        "expected_revision"
+      ]
+    },
+    "SessionCancelResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "type": "string"
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          }
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "result": {
+          "$ref": "#/$defs/SessionEndCompletion"
+        }
+      },
+      "required": [
+        "operation_id",
+        "resource_ids",
+        "request_id",
+        "replayed"
+      ]
+    },
+    "SessionCancelCompletion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "SessionTeleportCheckInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Location"
+        }
+      },
+      "required": [
+        "session_id",
+        "location"
+      ]
+    },
+    "SessionTeleportCheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Session"
+        },
+        "request_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "request_id"
+      ]
     }
   },
   "x-lamp-resources": {
@@ -33212,7 +34899,8 @@
         "list",
         "create",
         "update",
-        "delete"
+        "delete",
+        "revoke"
       ],
       "singleton": false
     },
@@ -38077,6 +39765,305 @@
       "cli": "lamp kit install-status",
       "mcp": "kit_install_status",
       "authorization": "authenticated_scope"
+    },
+    "relay_get": {
+      "kind": "relay",
+      "action": "get",
+      "method": "get",
+      "path": "/v1/relays/{relay_id}",
+      "mutation": false,
+      "input_schema": "RelayGetInput",
+      "result_schema": "RelayGetResult",
+      "scope": "relay.get",
+      "cli": "lamp relay get",
+      "mcp": "relay_get",
+      "authorization": "authenticated_scope"
+    },
+    "relay_list": {
+      "kind": "relay",
+      "action": "list",
+      "method": "get",
+      "path": "/v1/relays",
+      "mutation": false,
+      "input_schema": "RelayListInput",
+      "result_schema": "RelayListResult",
+      "scope": "relay.list",
+      "cli": "lamp relay list",
+      "mcp": "relay_list",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_stat": {
+      "kind": "sandbox",
+      "action": "file_stat",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-stat",
+      "mutation": false,
+      "input_schema": "SandboxFileStatInput",
+      "result_schema": "SandboxFileStatResult",
+      "scope": "sandbox.file_stat",
+      "cli": "lamp sandbox file-stat",
+      "mcp": "sandbox_file_stat",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_search": {
+      "kind": "sandbox",
+      "action": "file_search",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-search",
+      "mutation": false,
+      "input_schema": "SandboxFileSearchInput",
+      "result_schema": "SandboxFileSearchResult",
+      "scope": "sandbox.file_search",
+      "cli": "lamp sandbox file-search",
+      "mcp": "sandbox_file_search",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_watch": {
+      "kind": "sandbox",
+      "action": "file_watch",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-watch",
+      "mutation": false,
+      "input_schema": "SandboxFileWatchInput",
+      "result_schema": "SandboxFileWatchResult",
+      "scope": "sandbox.file_watch",
+      "cli": "lamp sandbox file-watch",
+      "mcp": "sandbox_file_watch",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_file_rename": {
+      "kind": "sandbox",
+      "action": "file_rename",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:file-rename",
+      "mutation": true,
+      "input_schema": "SandboxFileRenameInput",
+      "result_schema": "SandboxFileRenameResult",
+      "scope": "sandbox.file_rename",
+      "cli": "lamp sandbox file-rename",
+      "mcp": "sandbox_file_rename",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SandboxFileRenameCompletion"
+    },
+    "version_get": {
+      "kind": "api",
+      "action": "version",
+      "method": "get",
+      "path": "/v1/version",
+      "mutation": false,
+      "input_schema": "VersionGetInput",
+      "result_schema": "VersionGetResult",
+      "scope": "api.describe",
+      "cli": "lamp version",
+      "mcp": "version_get",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_kit": {
+      "kind": "sandbox",
+      "action": "kit",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:kit",
+      "mutation": true,
+      "input_schema": "SandboxKitInput",
+      "result_schema": "SandboxKitResult",
+      "completion_schema": "SandboxKitCompletion",
+      "scope": "sandbox.kit",
+      "cli": "lamp sandbox kit",
+      "mcp": "sandbox_kit",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_run_code": {
+      "kind": "sandbox",
+      "action": "run_code",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:run-code",
+      "mutation": true,
+      "input_schema": "SandboxRunCodeInput",
+      "result_schema": "SandboxRunCodeResult",
+      "completion_schema": "SandboxRunCodeCompletion",
+      "scope": "sandbox.run_code",
+      "cli": "lamp sandbox run-code",
+      "mcp": "sandbox_run_code",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_lsp": {
+      "kind": "sandbox",
+      "action": "lsp",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:lsp",
+      "mutation": true,
+      "input_schema": "SandboxLspInput",
+      "result_schema": "SandboxLspResult",
+      "completion_schema": "SandboxLspCompletion",
+      "scope": "sandbox.lsp",
+      "cli": "lamp sandbox lsp",
+      "mcp": "sandbox_lsp",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_browser": {
+      "kind": "sandbox",
+      "action": "browser",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:browser",
+      "mutation": true,
+      "input_schema": "SandboxBrowserInput",
+      "result_schema": "SandboxBrowserResult",
+      "completion_schema": "SandboxBrowserCompletion",
+      "scope": "sandbox.browser",
+      "cli": "lamp sandbox browser",
+      "mcp": "sandbox_browser",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_desktop": {
+      "kind": "sandbox",
+      "action": "desktop",
+      "method": "post",
+      "path": "/v1/sandboxes/{sandbox_id}:desktop",
+      "mutation": true,
+      "input_schema": "SandboxDesktopInput",
+      "result_schema": "SandboxDesktopResult",
+      "completion_schema": "SandboxDesktopCompletion",
+      "scope": "sandbox.desktop",
+      "cli": "lamp sandbox desktop",
+      "mcp": "sandbox_desktop",
+      "authorization": "authenticated_scope"
+    },
+    "harness_enroll": {
+      "kind": "harness",
+      "action": "enroll",
+      "method": "post",
+      "path": "/v1/harnesses:enroll",
+      "mutation": true,
+      "input_schema": "HarnessEnrollInput",
+      "result_schema": "HarnessEnrollResult",
+      "scope": "harness.enroll",
+      "cli": "lamp harness enroll",
+      "mcp": "harness_enroll",
+      "authorization": "authenticated_scope",
+      "completion_schema": "HarnessEnrollCompletion"
+    },
+    "secret_set": {
+      "kind": "secret",
+      "action": "set",
+      "method": "post",
+      "path": "/v1/secrets:set",
+      "mutation": true,
+      "input_schema": "SecretSetInput",
+      "result_schema": "SecretSetResult",
+      "scope": "secret.set",
+      "cli": "lamp secret set",
+      "mcp": "secret_set",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SecretSetCompletion"
+    },
+    "settings_source_apply": {
+      "kind": "settings_source",
+      "action": "apply",
+      "method": "post",
+      "path": "/v1/settings-sources/{settings_source_id}:apply",
+      "mutation": true,
+      "input_schema": "SettingsSourceApplyInput",
+      "result_schema": "SettingsSourceApplyResult",
+      "scope": "settings_source.apply",
+      "cli": "lamp settings-source apply",
+      "mcp": "settings_source_apply",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SettingsSourceApplyCompletion"
+    },
+    "secret_request": {
+      "kind": "secret",
+      "action": "request",
+      "method": "post",
+      "path": "/v1/secrets:request",
+      "mutation": true,
+      "input_schema": "SecretRequestInput",
+      "result_schema": "SecretRequestResult",
+      "scope": "secret.request",
+      "cli": "lamp secret request",
+      "mcp": "secret_request",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SecretRequestCompletion"
+    },
+    "credential_source_revoke": {
+      "kind": "credential_source",
+      "action": "revoke",
+      "method": "post",
+      "path": "/v1/credential-sources/{credential_source_id}:revoke",
+      "mutation": true,
+      "input_schema": "CredentialSourceRevokeInput",
+      "result_schema": "CredentialSourceRevokeResult",
+      "scope": "credential_source.revoke",
+      "cli": "lamp credential-source revoke",
+      "mcp": "credential_source_revoke",
+      "authorization": "authenticated_scope",
+      "completion_schema": "CredentialSourceRevokeCompletion"
+    },
+    "sandbox_metrics": {
+      "kind": "sandbox",
+      "action": "metrics",
+      "method": "get",
+      "path": "/v1/sandboxes/{sandbox_id}/metrics",
+      "mutation": false,
+      "input_schema": "SandboxMetricsInput",
+      "result_schema": "SandboxMetricsResult",
+      "scope": "sandbox.metrics",
+      "cli": "lamp sandbox metrics",
+      "mcp": "sandbox_metrics",
+      "authorization": "authenticated_scope"
+    },
+    "sandbox_logs": {
+      "kind": "sandbox",
+      "action": "logs",
+      "method": "get",
+      "path": "/v1/sandboxes/{sandbox_id}/logs",
+      "mutation": false,
+      "input_schema": "SandboxLogsInput",
+      "result_schema": "SandboxLogsResult",
+      "scope": "sandbox.logs",
+      "cli": "lamp sandbox logs",
+      "mcp": "sandbox_logs",
+      "authorization": "authenticated_scope"
+    },
+    "session_message": {
+      "kind": "session",
+      "action": "end",
+      "method": "post",
+      "path": "/v1/sessions/{session_id}:message",
+      "mutation": true,
+      "input_schema": "SessionMessageInput",
+      "result_schema": "SessionMessageResult",
+      "scope": "session.message",
+      "cli": "lamp session message",
+      "mcp": "session_message",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SessionMessageCompletion"
+    },
+    "session_cancel": {
+      "kind": "session",
+      "action": "end",
+      "method": "post",
+      "path": "/v1/sessions/{session_id}:cancel",
+      "mutation": true,
+      "input_schema": "SessionCancelInput",
+      "result_schema": "SessionCancelResult",
+      "scope": "session.cancel",
+      "cli": "lamp session cancel",
+      "mcp": "session_cancel",
+      "authorization": "authenticated_scope",
+      "completion_schema": "SessionCancelCompletion"
+    },
+    "session_teleport_check": {
+      "kind": "session",
+      "action": "teleport_check",
+      "method": "get",
+      "path": "/v1/sessions/{session_id}/teleport-check",
+      "mutation": false,
+      "input_schema": "SessionTeleportCheckInput",
+      "result_schema": "SessionTeleportCheckResult",
+      "scope": "session.teleport",
+      "cli": "lamp session teleport-check",
+      "mcp": "session_teleport_check",
+      "authorization": "authenticated_scope"
     }
   },
   "x-lamp-errors": {
@@ -38110,9 +40097,10 @@
     "QUORUM_REQUIRED": 503,
     "IDEMPOTENCY_HOME_UNAVAILABLE": 503,
     "TOKEN_HOME_UNAVAILABLE": 503,
-    "AUDIT_UNAVAILABLE": 503
+    "AUDIT_UNAVAILABLE": 503,
+    "FAILED_PRECONDITION": 409
   },
-  "x-lamp-spec-sha256": "69475703f0dc0b1cd1c8395519e8fef79874a710e6c78352687d64fd45970a2a",
+  "x-lamp-spec-sha256": "13522204aab647683b00ee6151a2a603a6e0e411683f1f4323587d87d95ea919",
   "x-lamp-limits": {
     "worker_control_bytes": 1048576,
     "stream_payload_bytes": 65536,

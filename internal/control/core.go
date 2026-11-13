@@ -2,6 +2,7 @@ package control
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -20,6 +21,7 @@ import (
 
 	public "lamp.eilmer.si/contracts/public"
 	"lamp.eilmer.si/docs/spec"
+	"lamp.eilmer.si/internal/buildversion"
 	"lamp.eilmer.si/internal/surface"
 	"lamp.eilmer.si/pkg/api"
 )
@@ -127,6 +129,23 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 			return
 		}
+		// Network and CI/control adapters share canonical configuration and grant
+		// operations. Preserve the lifecycle handler for network-owned resources.
+		s.readLock()
+		networkControl := op.Name == "configuration_create" && textField(in, "adapter_id") == "lamp.network/1"
+		if op.Name == "grant_delete" || op.Name == "grant_revoke" {
+			_, networkControl = s.life.Networks[textField(in, "grant_id")]
+		}
+		s.mu.Unlock()
+		if networkControl {
+			selectors := map[string]any{}
+			if grant := textField(in, "grant_id"); grant != "" {
+				selectors["grant_id"] = grant
+			}
+			r.Body = io.NopCloser(bytes.NewReader(data))
+			s.lifeHTTP(w, r, id, op, selectors)
+			return
+		}
 		if strings.HasPrefix(op.Scope, "change_set.") {
 			s.readLock()
 			legacy := strings.HasPrefix(textField(in, "source_session_id"), "sb_") || s.life.ChangeSets[textField(in, "change_set_id")] != nil
@@ -146,12 +165,22 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		s.invokeProtected(w, r, id, in)
 		return
 	}
-	if op.Name == "session_input" {
-		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in); err != nil {
+	if op.Name == "session_input" || op.Name == "session_attach" {
+		if err := s.wakeSessionInput(r.Context(), requestCaller(r), in, op.Name == "session_attach"); err != nil {
 			var denied *coreError
 			code := "DATA_UNAVAILABLE"
 			if errors.As(err, &denied) {
 				code = denied.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+	}
+	if op.Name == "plugin_test" {
+		if err := s.checkCIPlugin(r.Context(), requestCaller(r), in); err != nil {
+			code := "AUTH_TRANSPORT_UNSUPPORTED"
+			if ce, ok := err.(*coreError); ok {
+				code = ce.code
 			}
 			writeError(w, id, code, err.Error(), nil)
 			return
@@ -190,7 +219,8 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	a := requestCaller(r)
-	if !s.can(a, op.Scope) {
+	discovery := op.Name == "docs_read" && textField(in, "topic") == "operations" && s.current(a)
+	if !s.can(a, op.Scope) && !discovery {
 		writeError(w, id, "SCOPE_DENIED", "authority changed", nil)
 		return
 	}
@@ -208,7 +238,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 			writeError(w, id, "NOT_FOUND", "operation not found", nil)
 			return
 		}
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(op.Name, in)) {
 			writeError(w, id, "IDEMPOTENCY_CONFLICT", "key already used with different inputs", pointer(old))
 			return
 		}
@@ -300,7 +330,7 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	resultRaw, _ := json.Marshal(result)
 	adapter := api.AdapterDocument(resultRaw)
 	operation := api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "succeeded", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, RequestHash: pointer(hash), AcceptedAt: &now, CompletedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Outcome: &api.Outcome{Result: &adapter}}
-	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: ref}
+	rec := &record{Operation: operation, Hash: hash, RetryHashV1: s.retryHash(op.Name, in), Key: key, Resource: ref}
 	async := s.armSessionTransfer(ref.Id, operationID)
 	if async {
 		rec.Operation.State, rec.Operation.CompletedAt = "running", nil
@@ -333,6 +363,11 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		writeError(w, id, "DATA_UNAVAILABLE", "cannot commit management operation", pointer(operationID))
 		return
 	}
+	if op.Name == "change_set_reject" || op.Name == "change_set_delete" {
+		if previous := old.ChangeSets[ref.Id]; previous != nil && previous.ArchiveFile != "" && filepath.Base(previous.ArchiveFile) == previous.ArchiveFile {
+			_ = os.Remove(filepath.Join(s.dir, "transfer-artifacts", previous.ArchiveFile))
+		}
+	}
 	exportCommitted = true
 	if op.Name == "telemetry_purge" || op.Name == "telemetry_update" && !value(s.telemetry(a).Enabled) {
 		if err := s.compact(); err != nil {
@@ -345,7 +380,10 @@ func (s *Service) coreHTTP(w http.ResponseWriter, r *http.Request, id string, op
 }
 func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record, replay bool, secret *string) {
 	op := s.revocationOperation(rec.Operation)
-	result := op.Outcome.Result
+	var result *api.AdapterDocument
+	if op.Outcome != nil {
+		result = op.Outcome.Result
+	}
 	if secret != nil {
 		m := object(*result)
 		m["secret"] = *secret
@@ -359,25 +397,89 @@ func (s *Service) sendCoreMutation(w http.ResponseWriter, id string, rec *record
 		status = 202
 		result = nil
 	}
-	if op.Error != nil {
-		prepareError(w, id, *op.Error)()
-		return
-	}
 	prepareJSON(w, status, api.MutationEnvelope{OperationId: op.Id, Operation: &op, ResourceIds: []api.ResourceRef{rec.Resource}, RequestId: id, Replayed: replay, Result: result})()
 }
 func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.OperationDescriptor, in map[string]any) {
+	if op.Name == "session_teleport_check" {
+		work := s.journal.Control.Sessions[textField(in, "session_id")]
+		if work == nil || !s.sessionAllowed(a, work.Resource, "session.teleport") {
+			writeError(w, id, "NOT_FOUND", "session not found", nil)
+			return
+		}
+		if err := s.checkSessionTeleport(a, work, object(in["location"])); err != nil {
+			code := "INVALID_ARGUMENT"
+			var failure *coreError
+			if errors.As(err, &failure) {
+				code = failure.code
+			}
+			writeError(w, id, code, err.Error(), nil)
+			return
+		}
+		prepareJSON(w, 200, map[string]any{"data": work.Resource, "request_id": id})()
+		return
+	}
+	if op.Name == "metric_list" {
+		s.capacityMetrics(w, id, a)
+		return
+	}
 	if op.Name == "telemetry_get" {
 		prepareJSON(w, 200, map[string]any{"data": s.telemetry(a), "request_id": id})()
+		return
+	}
+	if op.Name == "version_get" {
+		s.versionHTTP(w, id)
 		return
 	}
 	if op.Name == "api_describe" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		w.Write(public.OpenAPI)
+		// Publish the operations this daemon actually installs; schemas remain
+		// complete so references and clients keep a single canonical definition.
+		var doc map[string]any
+		json.Unmarshal(public.OpenAPI, &doc)
+		info := doc["info"].(map[string]any)
+		info["x-api-version"] = info["version"]
+		info["version"] = buildversion.Current()
+		info["x-release-version"] = buildversion.Current()
+		installed := s.installedOperations()
+		paths := doc["paths"].(map[string]any)
+		for path, value := range paths {
+			methods := value.(map[string]any)
+			for method, entry := range methods {
+				if operation, ok := entry.(map[string]any); ok {
+					name, _ := operation["operationId"].(string)
+					if name != "" && !installed[name] {
+						delete(methods, method)
+					}
+				}
+			}
+			if len(methods) == 0 {
+				delete(paths, path)
+			}
+		}
+		json.NewEncoder(w).Encode(doc)
 		return
 	}
 	if op.Name == "docs_read" {
 		topic := textField(in, "topic")
+		if topic == "operations" {
+			prepareJSON(w, 200, map[string]any{"topic": topic, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
+		if topic == "approval-actions" {
+			plans := []BoundAction{}
+			for _, adapter := range s.protected {
+				if adapter.Describe == nil {
+					continue
+				}
+				b := adapter.Describe()
+				if b.Plan.ResourceRef != nil && s.protectedScope(a, b) && s.resourceAllowed(a, *b.Plan.ResourceRef) {
+					plans = append(plans, b)
+				}
+			}
+			prepareJSON(w, 200, map[string]any{"topic": topic, "actions": plans, "installed_operations": s.installedOperations(), "request_id": id})()
+			return
+		}
 		var content string
 		switch topic {
 		case "", "requirements":
@@ -416,9 +518,27 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 		writeError(w, id, "NOT_FOUND", "resource not found", nil)
 		return
 	}
+	if kind == "sandbox" && in["include_deleted"] != true {
+		visible := items[:0]
+		for _, item := range items {
+			if textField(item, "state") != "deleted" {
+				visible = append(visible, item)
+			}
+		}
+		items = visible
+	}
 	if action != "list" {
 		writeError(w, id, "NOT_FOUND", "operation not installed", nil)
 		return
+	}
+	if filter := textField(in, "sandbox_id"); filter != "" {
+		filtered := []map[string]any{}
+		for _, item := range items {
+			if textField(item, "sandbox_id") == filter {
+				filtered = append(filtered, item)
+			}
+		}
+		items = filtered
 	}
 	sort.Slice(items, func(i, j int) bool { return textField(items[i], "id") < textField(items[j], "id") })
 	limit := uint64(100)
@@ -432,7 +552,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	cursor := textField(in, "cursor")
 	start := 0
 	if cursor != "" {
-		last, err := s.readCursor(a, "list:"+kind, cursor)
+		last, err := s.readCursor(a, "list:"+kind+":"+textField(in, "sandbox_id"), cursor)
 		if err != nil {
 			writeError(w, id, "CURSOR_EXPIRED", "invalid cursor; list again without cursor", nil)
 			return
@@ -447,7 +567,7 @@ func (s *Service) coreRead(w http.ResponseWriter, id string, a caller, op api.Op
 	}
 	var next *string
 	if end < len(items) && end > start {
-		next = pointer(s.cursor(a, "list:"+kind, textField(items[end-1], "id")))
+		next = pointer(s.cursor(a, "list:"+kind+":"+textField(in, "sandbox_id"), textField(items[end-1], "id")))
 	}
 	prepareJSON(w, 200, map[string]any{"items": items[start:end], "next_cursor": next, "request_id": id})()
 }
@@ -455,6 +575,26 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 	items := []map[string]any{}
 	c := s.journal.Control
 	switch kind {
+	case "engine":
+		if engine, _, err := s.localEngine(); err == nil {
+			items = append(items, engine)
+		}
+	case "configuration":
+		items = append(items, s.lifeItems(a, kind)...)
+		if s.role(a) == "owner" {
+			for _, config := range c.Configurations {
+				items = append(items, object(config))
+			}
+		}
+	case "plugin", "adapter":
+		items = append(items, s.pluginResources(kind)...)
+	case "grant":
+		items = append(items, s.lifeItems(a, kind)...)
+		if s.role(a) == "owner" {
+			for _, g := range c.Grants {
+				items = append(items, object(g))
+			}
+		}
 	case "change_set":
 		for _, change := range c.ChangeSets {
 			if textField(change.Resource, "owner_id") == a.Principal {
@@ -518,6 +658,10 @@ func (s *Service) resources(a caller, kind string) []map[string]any {
 				items = append(items, object(v.Operation))
 			}
 		}
+	case "host":
+		return s.localHosts(a)
+	case "relay":
+		return s.relays(a)
 	case "fleet":
 		f := c.Fleet
 		p := c.updatePolicy()
@@ -578,6 +722,18 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 		return ref, nil, nil, nil, reject(code, message)
 	}
 	kind, verb, _ := strings.Cut(op.Scope, ".")
+	if kind == "configuration" {
+		return s.configurationMutation(a, op, in)
+	}
+	if op.Name == "share_update" {
+		return s.updateControlShare(a, in)
+	}
+	if kind == "plugin" {
+		return s.pluginMutation(a, op, in)
+	}
+	if kind == "grant" {
+		return s.grantMutation(a, op, in)
+	}
 	if kind == "change_set" || kind == "session" && (verb == "spawn" || verb == "teleport" || verb == "checkpoint") {
 		return s.sessionTransferMutation(a, op, in)
 	}
@@ -794,8 +950,8 @@ func (s *Service) coreMutation(a caller, op api.OperationDescriptor, in map[stri
 			if p := textField(in, "principal_id"); p != "" {
 				principal = p
 			}
-			if principal != a.Principal {
-				return fail("SCOPE_DENIED", "cannot issue another principal's key")
+			if principal != a.Principal && s.role(a) != "owner" {
+				return fail("SCOPE_DENIED", "only the owner can issue another principal's key")
 			}
 			if _, ok := in["parent_key_id"]; ok && textField(in, "parent_key_id") != parent {
 				return fail("SCOPE_DENIED", "parent must be authenticated issuer key")
@@ -885,6 +1041,14 @@ func (s *Service) cancelOperation(a caller, in map[string]any) (api.ResourceRef,
 	if terminal(rec.Operation.State) {
 		return ref, map[string]any{}, nil, nil, nil
 	}
+	if transfer := s.journal.Control.SessionTransfers[rec.Resource.Id]; transfer != nil && transfer.OperationID == id && transfer.Kind == "teleport" && transfer.Phase == "snapshot" && !transfer.InFlight {
+		source := s.journal.Control.Sessions[transfer.SourceID]
+		source.Resource["state"], source.Resource["location_epoch"] = "active", transfer.SourceEpoch
+		source.Resource["transfer"] = map[string]any{"phase": "canceled", "bytes_transferred": uint64(0), "artifact_bytes": uint64(0), "safe_to_close_source": false}
+		editResource(source.Resource)
+		transfer.Phase = "done"
+		rec.Operation.State = "accepted"
+	}
 	if rec.Operation.State != "accepted" {
 		return ref, nil, nil, nil, reject("OUTCOME_UNKNOWN", "work already dispatched; inspect the original operation and cleanup")
 	}
@@ -949,4 +1113,18 @@ func (s *Service) installedOperations() map[string]bool {
 		installed["host_list"] = true
 	}
 	return installed
+}
+
+// retryHash is versioned optional journal metadata. It preserves legacy hashes
+// while allowing CLI retries to refresh revision preconditions. HMAC keeps
+// private browser arguments from becoming a plaintext fingerprint oracle.
+func (s *Service) retryHash(name string, input any) string {
+	in := object(input)
+	delete(in, "expected_revision")
+	delete(in, "wait_ms")
+	raw, _ := json.Marshal(in)
+	mac := hmac.New(sha256.New, []byte(s.journal.Control.CursorSecret))
+	mac.Write([]byte(name + "\n"))
+	mac.Write(raw)
+	return hex.EncodeToString(mac.Sum(nil))
 }

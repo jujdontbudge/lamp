@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -20,10 +21,12 @@ import (
 const custodyOperationTimeout = 10 * time.Minute
 
 type savedSnapshot struct {
-	Snapshot     api.Snapshot `json:"snapshot"`
-	CaptureID    string       `json:"capture_id,omitempty"`
-	TemplateID   string       `json:"template_id,omitempty"`
-	ExportBlobID string       `json:"export_blob_id,omitempty"`
+	Resources    *api.Resources `json:"resources,omitempty"`
+	EngineID     *string        `json:"engine_id,omitempty"`
+	Snapshot     api.Snapshot   `json:"snapshot"`
+	CaptureID    string         `json:"capture_id,omitempty"`
+	TemplateID   string         `json:"template_id,omitempty"`
+	ExportBlobID string         `json:"export_blob_id,omitempty"`
 }
 
 type cleanExport struct {
@@ -44,7 +47,7 @@ type custodyPlan struct {
 }
 
 func admittedSubscriptionExec(ex api.Exec) bool {
-	if ex.Argv == nil || (ex.Env != nil && len(*ex.Env) != 0) || (ex.Cwd != nil && *ex.Cwd != "/" && *ex.Cwd != "") {
+	if value(ex.StdinOpen) || value(ex.Pty) || ex.StdinBlobId != nil || ex.Argv == nil || (ex.Env != nil && len(*ex.Env) != 0) || (ex.Cwd != nil && *ex.Cwd != "/" && *ex.Cwd != "") {
 		return false
 	}
 	argv := *ex.Argv
@@ -100,7 +103,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		if s.broken {
 			send = prepareError(w, requestID, api.ErrorDetail{Code: "DATA_UNAVAILABLE", Message: "journal unavailable"})
 		} else if strings.HasPrefix(path, "/v1/snapshots/") {
-			if snapshot, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok && s.sandboxAllowed(requestCaller(r), s.journal.Sandboxes[value(snapshot.Snapshot.SandboxId)]) && s.resourceAllowed(requestCaller(r), api.ResourceRef{Kind: "snapshot", Id: snapshot.Snapshot.Id}) {
+			if snapshot, ok := s.journal.Snapshots[strings.TrimPrefix(path, "/v1/snapshots/")]; ok && snapshot.Snapshot.State != "deleted" && s.snapshotAllowed(requestCaller(r), snapshot) {
 				send = prepareJSON(w, 200, api.SnapshotGetResult{RequestId: requestID, Data: snapshot.Snapshot})
 			}
 		} else if share, ok := s.journal.Shares[strings.TrimPrefix(path, "/v1/shares/")]; ok {
@@ -127,7 +130,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 		return fail("INVALID_ARGUMENT", "one bounded Idempotency-Key is required")
 	}
 	key := keys[0]
-	plan := custodyPlan{Durability: "volatile"}
+	plan := custodyPlan{Durability: "local"}
 	var input any
 	var wait *uint64
 	var revision uint64
@@ -229,7 +232,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 			s.mu.Unlock()
 			return fail("NOT_FOUND", "operation not found")
 		}
-		if s.journal.Operations[id].Hash != hash {
+		if rec := s.journal.Operations[id]; rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(plan.Name, input)) {
 			s.mu.Unlock()
 			return fail("IDEMPOTENCY_CONFLICT", "idempotency key was already used")
 		}
@@ -248,7 +251,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	}
 	if (suspend || resume) && sb.Revision != revision {
 		s.mu.Unlock()
-		return fail("REVISION_CONFLICT", "sandbox revision changed")
+		return fail("REVISION_CONFLICT", "sandbox revision is "+strconv.FormatUint(sb.Revision, 10))
 	}
 	expected := api.SandboxState("ready")
 	if resume {
@@ -277,6 +280,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	ref := api.ResourceRef{Kind: "sandbox", Id: sb.Id}
 	if plan.Name == "snapshot_create" || suspend {
 		plan.SnapshotID = newID("ss")
+		snapshot.Resources, snapshot.EngineID = sb.Resources, sb.EngineId
 		snapshot.Snapshot = api.Snapshot{Id: plan.SnapshotID, Kind: "snapshot", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "capturing", Labels: api.StringMap{}, Visibility: "private", SandboxId: pointer(sb.Id), Generation: sb.Generation, Durability: pointer(plan.Durability)}
 		s.journal.Snapshots[plan.SnapshotID] = snapshot
 		if !suspend {
@@ -297,7 +301,7 @@ func (s *Service) serveCustody(w http.ResponseWriter, r *http.Request, requestID
 	}
 	id := newID("op")
 	op := api.Operation{Id: id, Kind: "operation", FleetId: "fl_local", OwnerId: sb.OwnerId, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "accepted", Labels: api.StringMap{}, Visibility: "private", OperationName: &plan.Name, ResourceIds: &[]api.ResourceRef{ref}, RequestHash: &hash, AcceptedAt: &now, CleanupState: pointer(api.OperationCleanupStateNotNeeded), Durability: pointer(api.OperationDurabilityVolatile)}
-	s.journal.Operations[id] = &record{Caller: a, Operation: op, Hash: hash, Key: journalKey, Resource: ref, Custody: &plan}
+	s.journal.Operations[id] = &record{Caller: a, Operation: op, Hash: hash, RetryHashV1: s.retryHash(plan.Name, input), Key: journalKey, Resource: ref, Custody: &plan}
 	s.keys[journalKey], s.done[id], s.busy[plan.Source] = id, make(chan struct{}), true
 	if err := s.save(id, ref.Id, plan.SnapshotID, "$accountability"); err != nil {
 		s.broken = true

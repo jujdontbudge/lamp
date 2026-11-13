@@ -2,55 +2,91 @@
 
 # Lamp
 
-Lamp runs coding agents, harnesses and CI jobs in fast, isolated sandboxes on
-machines you own. Each sandbox is its own virtual machine: Firecracker on Linux,
-Virtualization.framework on Apple Silicon Macs. Agents get to use your model
-keys, logins and tools through a broker without being handed the secrets.
+Lamp runs Linux sandboxes on machines you own: Firecracker on Linux with KVM,
+and Virtualization.framework on Apple Silicon Macs. This is a developer preview.
+The 0.1.2 release adds an installed engine and default Linux template to the
+control-only 0.1.1 installer.
 
 Created in [T3 Code](https://t3.codes).
 
-- **Fast sandboxes.** Create a Linux sandbox in about 330–400 ms (p50), and fork
-  a running one, memory included. [Measured results](docs/release/measurements.md),
-  including the targets Lamp does not yet meet.
-- **Bring your agent.** Eleven coding agents, sessions over native PTYs, stock
-  SSH, ACP and MCP, and continuation between your machine and a sandbox.
-- **CI in fresh VMs.** GitHub Actions and GitLab runners, plus other CI systems.
-- **Fleets.** Join several machines into one fleet; updates roll out one host at
-  a time and roll back on failure.
-- **Yours.** Everything runs on your own hardware, including the optional relay.
+## Install and run code
 
-## Install
+On Linux amd64/arm64 with KVM, or Apple Silicon macOS 26+ with noninteractive
+administrator access:
 
 ```sh
 curl -fsSL https://lamp.eilmer.si/install.sh | sh
+"$HOME/.local/lamp/current/bin/lamp" sandbox run -- python3 -c 'print("hello from Lamp")'
 ```
 
-The installer checks the download's digest and the release signature. Then set
-up the engine and, if you want it, the TypeScript SDK: see the
-[0.1.1 release notes](docs/release/0.1.1.md). Linux needs KVM; macOS needs
-version 26 or later on Apple Silicon.
+The command creates a VM, runs Python and deletes the VM. The installer prints
+its binary directory, PATH instruction and private dashboard sign-in file.
+See [installation and engine setup](docs/install.md#engine-setup) for host
+packages, memory/disk requirements, credentials and a persistent sandbox;
+[update, rollback and uninstall](docs/install.md#update-rollback-and-remove-an-install)
+use the same prefix. macOS memory defaults adapt to available memory.
+
+## What you can use
+
+The CLI, MCP and HTTP API are the supported interfaces. Installed discovery
+(`lamp --help --json`, MCP `tools/list`, served OpenAPI) describes this daemon's
+handlers; enrollment and host capability can still be required.
+
+- [Guest tools and devices](docs/guest-linux.md): Python, Node, git and compiler
+  tools; Linux Firecracker has no display, audio or GPU devices.
+- [Sleep, snapshots, budgets and encrypted recovery](docs/lifecycle-and-recovery.md):
+  `lamp snapshot list`, `lamp budget list`, `lamp backup list`.
+- [Templates and storage](docs/templates-and-storage.md): `lamp template list`,
+  template builds, saved tools, persistent volumes and caches.
+- [Networking](docs/networking.md): `lamp port expose` for loopback previews,
+  private share links and live transport policy. Public preview access does not
+  expose a host listener to the Internet.
+- [Agents and model custody](docs/agents.md): `lamp harness list`; managed
+  OpenCode and explicitly enrolled Codex. Codex subscription import keeps the
+  upstream sign-in on the host. Claude subscription custody is unsupported.
+- [Agent workflow](docs/agent-workflow.md): children, returned git changes,
+  side chats, host/VM moves and T3 Code/Herdr bridges need the documented session
+  enrollment. Host execution is off by default.
+- [Sandbox kits](docs/guides/kits.md): `lamp kit list`; Python, Chromium,
+  guest Docker, TypeScript LSP and a virtual desktop. On Linux arm64 hosts,
+  Docker, LSP and desktop are unverified.
+- [Dashboard](docs/dashboard.md): `lamp dashboard`; local sign-in, sandbox
+  metrics and bounded recent logs.
+- [Control operations](docs/control-operations.md) and
+  [fleets and remote access](docs/release/fleets-and-access.md) require private
+  owner enrollment. CI is not configured by installation. A native Forgejo
+  fresh-VM job was demonstrated; the adapter catalogue is not a claim that
+  every CI service was demonstrated.
+
+The owner deferred SDK work. The generated TypeScript package is unchanged in
+scope and is not a supported 0.1.2 workflow; there is no Python SDK or npm release.
+Eleven ready-to-run agents, automatic gVisor fallback, hosted self-service
+sign-ups and automatic recovery of private VM state onto a surviving host are
+not offered by this release. See all [release limits](docs/release/0.1.2.md).
+
+## Measured results
+
+Ubuntu amd64 install through code and cleanup took **165.473 s** on a T32 signed
+development candidate using a local HTTP origin, exceeding the two-minute goal.
+This is not a public-download timing. Mac and nested Linux arm64 observations,
+and the older 0.1.0 create/fork/native-speed results with their platform names,
+are in [measurements](docs/release/measurements.md). No fresh 0.1.2 speed or
+complete zero-leak result is claimed before release measurements are taken.
 
 ## Build from source
 
 ```sh
 git clone https://gitlab.com/johansardar/lamp.git && cd lamp
-make build              # Go, Rust and the plugin launcher
-make bootstrap verify   # build plus selected smoke tests
+make build
 ```
 
 You need Go, Rust (see `rust-toolchain.toml`), a C compiler and Python 3.
-
-## Documentation
-
-- [Release notes](docs/release/0.1.1.md) and [release measurements](docs/release/measurements.md)
-- [Specification](docs/spec/brief.md), [requirements](docs/spec/requirements.md) and [architecture](docs/spec/architecture.md)
-- [Public API schema](contracts/public/schema.json) and [OpenAPI](contracts/public/openapi.json)
-- [Development evidence](docs/development/README.md): what each feature was shown doing, failures included
-- [Glossary](GLOSSARY.md)
+The [public schema](contracts/public/schema.json) is the complete vocabulary;
+use the installed daemon's OpenAPI for its available operations.
 
 ## Licence
 
-Lamp's host code, CLI, SDKs and first-party plugins are licensed under
+Host code, CLI, generated SDKs and first-party plugins are
 [Apache-2.0](LICENSE). The optional relay server (`internal/relay`,
-`cmd/lamp-relay`) is [AGPL-3.0-only](internal/relay/LICENSE). Dependencies keep
-their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).
+`cmd/lamp-relay`) is [AGPL-3.0-only](internal/relay/LICENSE).
+See [THIRD_PARTY.md](THIRD_PARTY.md) for dependency licences.

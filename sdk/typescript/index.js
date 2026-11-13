@@ -931,6 +931,16 @@ export const OPERATIONS = {
   "resultSchema": "CredentialSourceListResult",
   "scope": "credential_source.list"
  },
+ "credential_source_revoke": {
+  "cli": "lamp credential-source revoke",
+  "inputSchema": "CredentialSourceRevokeInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "credential_source_revoke",
+  "path": "/v1/credential-sources/{credential_source_id}:revoke",
+  "resultSchema": "CredentialSourceRevokeResult",
+  "scope": "credential_source.revoke"
+ },
  "credential_source_update": {
   "cli": "lamp credential-source update",
   "inputSchema": "CredentialSourceUpdateInput",
@@ -1210,6 +1220,16 @@ export const OPERATIONS = {
   "path": "/v1/grants/{grant_id}:revoke",
   "resultSchema": "GrantRevokeResult",
   "scope": "grant.revoke"
+ },
+ "harness_enroll": {
+  "cli": "lamp harness enroll",
+  "inputSchema": "HarnessEnrollInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "harness_enroll",
+  "path": "/v1/harnesses:enroll",
+  "resultSchema": "HarnessEnrollResult",
+  "scope": "harness.enroll"
  },
  "harness_get": {
   "cli": "lamp harness get",
@@ -2301,6 +2321,36 @@ export const OPERATIONS = {
   "resultSchema": "RecipeUpdateResult",
   "scope": "recipe.update"
  },
+ "relay_get": {
+  "cli": "lamp relay get",
+  "inputSchema": "RelayGetInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "relay_get",
+  "path": "/v1/relays/{relay_id}",
+  "resultSchema": "RelayGetResult",
+  "scope": "relay.get"
+ },
+ "relay_list": {
+  "cli": "lamp relay list",
+  "inputSchema": "RelayListInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "relay_list",
+  "path": "/v1/relays",
+  "resultSchema": "RelayListResult",
+  "scope": "relay.list"
+ },
+ "sandbox_browser": {
+  "cli": "lamp sandbox browser",
+  "inputSchema": "SandboxBrowserInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_browser",
+  "path": "/v1/sandboxes/{sandbox_id}:browser",
+  "resultSchema": "SandboxBrowserResult",
+  "scope": "sandbox.browser"
+ },
  "sandbox_create": {
   "cli": "lamp sandbox create",
   "inputSchema": "SandboxCreateInput",
@@ -2320,6 +2370,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}",
   "resultSchema": "SandboxDeleteResult",
   "scope": "sandbox.delete"
+ },
+ "sandbox_desktop": {
+  "cli": "lamp sandbox desktop",
+  "inputSchema": "SandboxDesktopInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_desktop",
+  "path": "/v1/sandboxes/{sandbox_id}:desktop",
+  "resultSchema": "SandboxDesktopResult",
+  "scope": "sandbox.desktop"
  },
  "sandbox_device_input": {
   "cli": "lamp sandbox device-input",
@@ -2371,6 +2431,36 @@ export const OPERATIONS = {
   "resultSchema": "SandboxFileReadResult",
   "scope": "sandbox.file_read"
  },
+ "sandbox_file_rename": {
+  "cli": "lamp sandbox file-rename",
+  "inputSchema": "SandboxFileRenameInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_file_rename",
+  "path": "/v1/sandboxes/{sandbox_id}:file-rename",
+  "resultSchema": "SandboxFileRenameResult",
+  "scope": "sandbox.file_rename"
+ },
+ "sandbox_file_search": {
+  "cli": "lamp sandbox file-search",
+  "inputSchema": "SandboxFileSearchInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_search",
+  "path": "/v1/sandboxes/{sandbox_id}:file-search",
+  "resultSchema": "SandboxFileSearchResult",
+  "scope": "sandbox.file_search"
+ },
+ "sandbox_file_stat": {
+  "cli": "lamp sandbox file-stat",
+  "inputSchema": "SandboxFileStatInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_stat",
+  "path": "/v1/sandboxes/{sandbox_id}:file-stat",
+  "resultSchema": "SandboxFileStatResult",
+  "scope": "sandbox.file_stat"
+ },
  "sandbox_file_transfer": {
   "cli": "lamp sandbox file-transfer",
   "inputSchema": "SandboxFileTransferInput",
@@ -2380,6 +2470,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}:file-transfer",
   "resultSchema": "SandboxFileTransferResult",
   "scope": "sandbox.file_transfer"
+ },
+ "sandbox_file_watch": {
+  "cli": "lamp sandbox file-watch",
+  "inputSchema": "SandboxFileWatchInput",
+  "method": "POST",
+  "mutation": false,
+  "name": "sandbox_file_watch",
+  "path": "/v1/sandboxes/{sandbox_id}:file-watch",
+  "resultSchema": "SandboxFileWatchResult",
+  "scope": "sandbox.file_watch"
  },
  "sandbox_file_write": {
   "cli": "lamp sandbox file-write",
@@ -2411,6 +2511,16 @@ export const OPERATIONS = {
   "resultSchema": "SandboxGetResult",
   "scope": "sandbox.get"
  },
+ "sandbox_kit": {
+  "cli": "lamp sandbox kit",
+  "inputSchema": "SandboxKitInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_kit",
+  "path": "/v1/sandboxes/{sandbox_id}:kit",
+  "resultSchema": "SandboxKitResult",
+  "scope": "sandbox.kit"
+ },
  "sandbox_list": {
   "cli": "lamp sandbox list",
   "inputSchema": "SandboxListInput",
@@ -2420,6 +2530,36 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes",
   "resultSchema": "SandboxListResult",
   "scope": "sandbox.list"
+ },
+ "sandbox_logs": {
+  "cli": "lamp sandbox logs",
+  "inputSchema": "SandboxLogsInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "sandbox_logs",
+  "path": "/v1/sandboxes/{sandbox_id}/logs",
+  "resultSchema": "SandboxLogsResult",
+  "scope": "sandbox.logs"
+ },
+ "sandbox_lsp": {
+  "cli": "lamp sandbox lsp",
+  "inputSchema": "SandboxLspInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_lsp",
+  "path": "/v1/sandboxes/{sandbox_id}:lsp",
+  "resultSchema": "SandboxLspResult",
+  "scope": "sandbox.lsp"
+ },
+ "sandbox_metrics": {
+  "cli": "lamp sandbox metrics",
+  "inputSchema": "SandboxMetricsInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "sandbox_metrics",
+  "path": "/v1/sandboxes/{sandbox_id}/metrics",
+  "resultSchema": "SandboxMetricsResult",
+  "scope": "sandbox.metrics"
  },
  "sandbox_prepare_fork": {
   "cli": "lamp sandbox prepare-fork",
@@ -2450,6 +2590,16 @@ export const OPERATIONS = {
   "path": "/v1/sandboxes/{sandbox_id}:resume",
   "resultSchema": "SandboxResumeResult",
   "scope": "sandbox.resume"
+ },
+ "sandbox_run_code": {
+  "cli": "lamp sandbox run-code",
+  "inputSchema": "SandboxRunCodeInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "sandbox_run_code",
+  "path": "/v1/sandboxes/{sandbox_id}:run-code",
+  "resultSchema": "SandboxRunCodeResult",
+  "scope": "sandbox.run_code"
  },
  "sandbox_save_template": {
   "cli": "lamp sandbox save-template",
@@ -2561,6 +2711,26 @@ export const OPERATIONS = {
   "resultSchema": "ScheduleUpdateResult",
   "scope": "schedule.update"
  },
+ "secret_request": {
+  "cli": "lamp secret request",
+  "inputSchema": "SecretRequestInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "secret_request",
+  "path": "/v1/secrets:request",
+  "resultSchema": "SecretRequestResult",
+  "scope": "secret.request"
+ },
+ "secret_set": {
+  "cli": "lamp secret set",
+  "inputSchema": "SecretSetInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "secret_set",
+  "path": "/v1/secrets:set",
+  "resultSchema": "SecretSetResult",
+  "scope": "secret.set"
+ },
  "session_attach": {
   "cli": "lamp session attach",
   "inputSchema": "SessionAttachInput",
@@ -2570,6 +2740,16 @@ export const OPERATIONS = {
   "path": "/v1/sessions/{session_id}:attach",
   "resultSchema": "SessionAttachResult",
   "scope": "session.attach"
+ },
+ "session_cancel": {
+  "cli": "lamp session cancel",
+  "inputSchema": "SessionCancelInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "session_cancel",
+  "path": "/v1/sessions/{session_id}:cancel",
+  "resultSchema": "SessionCancelResult",
+  "scope": "session.cancel"
  },
  "session_checkpoint": {
   "cli": "lamp session checkpoint",
@@ -2651,6 +2831,16 @@ export const OPERATIONS = {
   "resultSchema": "SessionListResult",
   "scope": "session.list"
  },
+ "session_message": {
+  "cli": "lamp session message",
+  "inputSchema": "SessionMessageInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "session_message",
+  "path": "/v1/sessions/{session_id}:message",
+  "resultSchema": "SessionMessageResult",
+  "scope": "session.message"
+ },
  "session_resize": {
   "cli": "lamp session resize",
   "inputSchema": "SessionResizeInput",
@@ -2679,6 +2869,16 @@ export const OPERATIONS = {
   "name": "session_teleport",
   "path": "/v1/sessions/{session_id}:teleport",
   "resultSchema": "SessionTeleportResult",
+  "scope": "session.teleport"
+ },
+ "session_teleport_check": {
+  "cli": "lamp session teleport-check",
+  "inputSchema": "SessionTeleportCheckInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "session_teleport_check",
+  "path": "/v1/sessions/{session_id}/teleport-check",
+  "resultSchema": "SessionTeleportCheckResult",
   "scope": "session.teleport"
  },
  "session_update": {
@@ -2760,6 +2960,16 @@ export const OPERATIONS = {
   "path": "/v1/settings-changes/{settings_change_id}:reject",
   "resultSchema": "SettingsChangeRejectResult",
   "scope": "settings_change.reject"
+ },
+ "settings_source_apply": {
+  "cli": "lamp settings-source apply",
+  "inputSchema": "SettingsSourceApplyInput",
+  "method": "POST",
+  "mutation": true,
+  "name": "settings_source_apply",
+  "path": "/v1/settings-sources/{settings_source_id}:apply",
+  "resultSchema": "SettingsSourceApplyResult",
+  "scope": "settings_source.apply"
  },
  "settings_source_create": {
   "cli": "lamp settings-source create",
@@ -3180,6 +3390,16 @@ export const OPERATIONS = {
   "path": "/v1/updates/{update_id}:rollback",
   "resultSchema": "UpdateRollbackResult",
   "scope": "update.rollback"
+ },
+ "version_get": {
+  "cli": "lamp version",
+  "inputSchema": "VersionGetInput",
+  "method": "GET",
+  "mutation": false,
+  "name": "version_get",
+  "path": "/v1/version",
+  "resultSchema": "VersionGetResult",
+  "scope": "api.describe"
  },
  "volume_create": {
   "cli": "lamp volume create",
