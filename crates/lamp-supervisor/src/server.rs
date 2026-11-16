@@ -129,6 +129,9 @@ fn command_name(command: &request::Command) -> &'static str {
         request::Command::Cancel(_) => "cancel",
         request::Command::Rebuild(_) => "rebuild",
         request::Command::SessionCall(_) => "session_call",
+        request::Command::NetworkCall(_) => "network_call",
+        request::Command::Template(_) => "template",
+        request::Command::StorageMount(_) => "storage_mount",
     }
 }
 
@@ -181,6 +184,7 @@ impl Server {
                 worker_id: self.cfg.worker_id.clone(),
                 boot_id: self.boot_id.clone(),
                 max_control_bytes: MAX_CONTROL_BYTES as u32,
+                release_version: crate::release_version().into(),
             })),
         };
         send_frame_with_fds(&stream, &hello, &[])?;
@@ -193,14 +197,38 @@ impl Server {
                     && fds.is_empty() => {}
             _ => {
                 return Err(std::io::Error::other(
-                    "peer did not send a valid lamp.worker/1 Hello",
+                    "peer did not send a valid lamp.worker/2 Hello",
                 ));
             }
         }
         stream.set_read_timeout(None)?;
         let writer = Arc::new(Mutex::new(stream.try_clone()?));
         loop {
-            let (frame, fds) = recv_frame_with_fds(&stream)?;
+            let (frame, fds) = match recv_frame_with_fds(&stream) {
+                Ok(value) => value,
+                Err(err) => {
+                    if let Some(rejected) = err
+                        .get_ref()
+                        .and_then(|e| e.downcast_ref::<lamp_worker_protocol::unix::RejectedFrame>())
+                        && let Some(frame::Payload::Request(request)) = &rejected.0.payload
+                        && request.context.is_some()
+                    {
+                        let reply = Frame {
+                            payload: Some(frame::Payload::Response(Response {
+                                context: request.context.clone(),
+                                result: Some(error(
+                                    "INVALID_ARGUMENT",
+                                    "unknown or non-canonical request fields",
+                                    false,
+                                )),
+                            })),
+                        };
+                        send_frame_with_fds(&*writer.lock().unwrap(), &reply, &[])?;
+                        continue;
+                    }
+                    return Err(err);
+                }
+            };
             let Some(frame::Payload::Request(request)) = frame.payload else {
                 return Err(std::io::Error::other("expected Request"));
             };
@@ -296,7 +324,8 @@ impl Server {
             return error(code, message, false);
         }
         let print = fingerprint(&command);
-        let read_only = matches!(command, request::Command::Inspect(_));
+        let read_only = matches!(&command, request::Command::Inspect(_))
+            || matches!(&command, request::Command::Allocate(a) if a.validate_only);
         if !read_only {
             let mut ops = self.ops.lock().unwrap();
             match ops.0.get(&ctx.operation_id) {
@@ -338,6 +367,15 @@ impl Server {
         };
         let began = std::time::Instant::now();
         let result = match command {
+            request::Command::Template(t) => crate::templates::dispatch(&self.engine, &t),
+            request::Command::StorageMount(m) => self.engine.mount_storage(
+                auth,
+                &m.socket_path,
+                &m.mount_path,
+                m.read_only,
+                m.unmount,
+                caller_uid,
+            ),
             request::Command::Allocate(a) => {
                 if !a.engine_id.is_empty()
                     && a.engine_id != ENGINE_NAME
@@ -374,14 +412,26 @@ impl Server {
                                 size_mib: d.size_mib,
                             })
                             .collect();
-                        self.engine
-                            .allocate_with(auth, resources, pids_max, &devices)
+                        self.engine.allocate_plan(
+                            auth,
+                            resources,
+                            pids_max,
+                            &devices,
+                            a.validate_only,
+                            &a.template_id,
+                            a.shared_disk,
+                        )
                     }
                     #[cfg(not(target_os = "linux"))]
                     {
                         let _ = pids_max;
                         if a.devices.is_empty() {
-                            self.engine.allocate(auth, resources)
+                            self.engine.allocate_plan(
+                                auth,
+                                resources,
+                                a.validate_only,
+                                &a.template_id,
+                            )
                         } else {
                             Err(EngineError::new(
                                 "DEVICE_UNAVAILABLE",
@@ -427,24 +477,30 @@ impl Server {
                     Ok(())
                 };
                 bridge.and_then(|_| {
-                    self.engine.start(
+                    self.engine.start_io(
                         auth,
                         &ctx.operation_id,
                         s.argv,
                         s.cwd,
                         s.env.into_iter().collect(),
-                        0,
+                        s.timeout_ms,
+                        s.stdin_path,
+                        s.pty,
+                        s.stdin_open,
                     )
                 })
             }
             #[cfg(target_os = "macos")]
-            request::Command::Start(s) => self.engine.start(
+            request::Command::Start(s) => self.engine.start_io(
                 auth,
                 &ctx.operation_id,
                 s.argv,
                 s.cwd,
                 s.env.into_iter().collect(),
-                0,
+                s.timeout_ms,
+                s.stdin_path,
+                s.pty,
+                s.stdin_open,
             ),
             #[cfg(target_os = "linux")]
             request::Command::Capture(c) => {
@@ -469,16 +525,16 @@ impl Server {
             request::Command::Inspect(i) => self
                 .engine
                 .inspect(&ctx.sandbox_id, &i.command_operation_id),
-            #[cfg(target_os = "linux")]
+            request::Command::NetworkCall(call) => {
+                self.engine.network_call(auth, call.request_json)
+            }
+            request::Command::SessionCall(call) if call.bridge_source == "lamp-exec-io/1" => {
+                self.engine.exec_io(auth, call.request_json)
+            }
             request::Command::SessionCall(call) => {
                 self.engine
                     .session_call(auth, call.request_json, call.bridge_source)
             }
-            #[cfg(target_os = "macos")]
-            request::Command::SessionCall(_) => Err(EngineError::new(
-                "ENGINE_UNQUALIFIED",
-                "guest session relay is not available on this engine",
-            )),
             request::Command::Cancel(_) => Err(EngineError::invalid(
                 "cancel is not supported; operations are short and atomic",
             )),
@@ -589,6 +645,11 @@ impl Server {
                 .insert(format!("template.{}", t.id), t.manifest.name.clone());
         }
         o.detail.insert("engine".into(), ENGINE_NAME.into());
+        #[cfg(target_os = "linux")]
+        o.detail
+            .insert("request_devices".into(), "[\"disk\"]".into());
+        #[cfg(target_os = "macos")]
+        o.detail.insert("request_devices".into(), "[]".into());
         // The Lamp release this supervisor binary was built for.
         o.detail.insert(
             "supervisor_release".into(),

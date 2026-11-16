@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"lamp.eilmer.si/internal/relayclient"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -26,20 +28,22 @@ const maxOperations = 1_000_000
 const compactEvery = 16384
 
 type record struct {
-	Caller    caller          `json:"caller,omitempty"`
-	Operation api.Operation   `json:"operation"`
-	Hash      string          `json:"hash"`
-	Key       string          `json:"key"`
-	Resource  api.ResourceRef `json:"resource"`
-	Custody   *custodyPlan    `json:"custody,omitempty"`
+	Caller      caller          `json:"caller,omitempty"`
+	Operation   api.Operation   `json:"operation"`
+	Hash        string          `json:"hash"`
+	RetryHashV1 string          `json:"retry_hash_v1,omitempty"`
+	Key         string          `json:"key"`
+	Resource    api.ResourceRef `json:"resource"`
+	Custody     *custodyPlan    `json:"custody,omitempty"`
 }
 type journal struct {
-	Accountability *accountability `json:"accountability,omitempty"`
-	EventSequence  uint64          `json:"event_sequence,omitempty"`
-	EventFloor     uint64          `json:"event_floor,omitempty"`
-	Control        *controlState   `json:"control,omitempty"`
-	Events         []storedEvent   `json:"events,omitempty"`
-	Sequence       uint64          `json:"sequence,omitempty"`
+	PurgedSandboxes []string        `json:"purged_sandboxes,omitempty"`
+	Accountability  *accountability `json:"accountability,omitempty"`
+	EventSequence   uint64          `json:"event_sequence,omitempty"`
+	EventFloor      uint64          `json:"event_floor,omitempty"`
+	Control         *controlState   `json:"control,omitempty"`
+	Events          []storedEvent   `json:"events,omitempty"`
+	Sequence        uint64          `json:"sequence,omitempty"`
 	// LogGeneration names the journal.log instance that follows this
 	// snapshot; every compaction starts a new one (see commitMark).
 	LogGeneration uint64                   `json:"log_generation,omitempty"`
@@ -53,6 +57,8 @@ type journal struct {
 	Templates     map[string]cleanExport   `json:"templates,omitempty"`
 }
 type Config struct {
+	APISocket string
+	Relay     *relayclient.Config
 	// Trusted upper bound for one namespace's retained network/process audit
 	// spools. Match the enrolled supervisor policy; zero keeps the 24 MiB default.
 	AuditReservationBytes uint64
@@ -92,6 +98,15 @@ type Config struct {
 	InstallDir string
 }
 type Service struct {
+	secretMu              sync.RWMutex
+	agentEntries          chan struct{}
+	agentSocket           string
+	agentRuntimes         map[string]*agentRuntime
+	relayConfig           *relayclient.Config
+	relayConnected        atomic.Bool
+	auditMu               sync.Mutex
+	metrics               map[string][]metricSample
+	engineLogs            map[string]string
 	notifyConfig          *NotificationConfig
 	notifyKick            chan struct{}
 	notifyInflight        map[string]bool
@@ -112,6 +127,7 @@ type Service struct {
 	commitChanged         chan struct{}
 	identity              IdentityConfig
 	recoveryPublic        *ecdh.PublicKey
+	installedTemplate     *api.Template
 	installDir            string
 	wantFleet             bool
 	protected             map[string]ProtectedAction
@@ -123,6 +139,7 @@ type Service struct {
 	exportsDir            string
 	readers               map[uint32]string
 	lock                  *os.File
+	previewSecrets        map[string]string
 	worker                workerClient
 	rootContext           context.Context
 	done                  map[string]chan struct{}
@@ -227,8 +244,8 @@ func Open(config Config) (*Service, error) {
 	if (config.Fleet != nil || config.NativeFallback != nil) && w.Socket == "" {
 		w = WorkerConfig{Socket: "/unused-control-only", WorkerID: "control-only", BootID: "control-only", GrantID: "none", UID: os.Geteuid(), PID: os.Getpid()}
 	}
-	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID <= 0 {
-		return nil, errors.New("assigned worker socket, identity, boot, UID, PID and grant are required")
+	if w.Socket == "" || w.WorkerID == "" || w.BootID == "" || w.GrantID == "" || w.UID < 0 || w.PID < 0 {
+		return nil, errors.New("assigned worker socket, identity, boot, UID and grant are required")
 	}
 	if w.Timeout == 0 {
 		w.Timeout = 30 * time.Second
@@ -251,7 +268,7 @@ func Open(config Config) (*Service, error) {
 	if reservation == 0 {
 		reservation = 24 << 20
 	}
-	s := &Service{auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
+	s := &Service{relayConfig: config.Relay, auditReservationBytes: reservation, fleetEnabled: config.Fleet != nil, quotas: defaultQuotas(config.Quotas), auditReader: config.AuditReader, auditRelease: config.AuditRelease, dir: config.StateDir, lock: lock, worker: workerClient{config: w}, done: map[string]chan struct{}{}, busy: map[string]bool{}, starting: map[string]int{}, keys: map[string]string{}, changed: make(chan struct{})}
 	s.journal = journal{Version: 1, Operations: map[string]*record{}, Sandboxes: map[string]api.Sandbox{}, Execs: map[string]api.Exec{}, Outputs: map[string][]api.Frame{}}
 	path := filepath.Join(s.dir, "journal.json")
 	data, err := os.ReadFile(path)
@@ -324,6 +341,9 @@ func Open(config Config) (*Service, error) {
 			for id, sb := range delta.Sandboxes {
 				s.journal.Sandboxes[id] = sb
 			}
+			for _, id := range delta.PurgedSandboxes {
+				delete(s.journal.Sandboxes, id)
+			}
 			for id, ex := range delta.Execs {
 				s.journal.Execs[id] = ex
 			}
@@ -371,6 +391,7 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.initControlGrant()
 	if err := s.initSessions(config.Sessions); err != nil {
 		lock.Close()
 		return nil, err
@@ -407,6 +428,12 @@ func Open(config Config) (*Service, error) {
 				s.done[id] = ch
 				continue
 			}
+			if value(r.Operation.OperationName) == "sandbox_delete" && !terminal(r.Operation.State) {
+				r.Operation.State = "accepted"
+				r.Operation.Error = nil
+				s.done[id] = ch
+				continue
+			}
 			close(ch)
 			s.done[id] = ch
 			if !terminal(r.Operation.State) {
@@ -432,7 +459,7 @@ func Open(config Config) (*Service, error) {
 				s.bindDefaultTask(a, &sb)
 				s.journal.Sandboxes[id] = sb
 			}
-			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" {
+			if sb.State != "failed" && sb.State != "deleted" && sb.State != "suspended" && sb.State != "deleting" {
 				sb.State = "unavailable"
 				sb.Revision++
 				sb.UpdatedAt = timestamp()
@@ -474,11 +501,20 @@ func Open(config Config) (*Service, error) {
 		lock.Close()
 		return nil, err
 	}
+	s.agentSocket = config.APISocket
+	if err := s.initAgents(); err != nil {
+		s.Close()
+		return nil, err
+	}
 	if err := s.initCI(config.CI); err != nil {
 		s.Close()
 		return nil, err
 	}
 	s.installDir = config.InstallDir
+	if err := s.loadInstalledTemplate(); err != nil {
+		s.Close()
+		return nil, err
+	}
 	s.wantFleet = config.Fleet != nil
 	s.wg.Add(1)
 	go s.driveSessions()
@@ -496,16 +532,26 @@ func Open(config Config) (*Service, error) {
 	s.readLock()
 	s.initNotifications(config.Notifications)
 	s.mu.Unlock()
+	s.readLock()
+	for id, sb := range s.journal.Sandboxes {
+		if sb.State == "unavailable" && s.resumedGeneration(id, value(sb.Generation)) {
+			s.wg.Add(1)
+			go s.reconcileSandbox(id, "")
+		}
+	}
 	for _, rec := range s.journal.Operations {
-		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
+		if rec.Operation.State == "succeeded" && rec.Resource.Kind == "sandbox" && !s.resumedGeneration(rec.Resource.Id, value(s.journal.Sandboxes[rec.Resource.Id].Generation)) && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") {
 			s.wg.Add(1)
 			go s.reconcileSandbox(rec.Resource.Id, rec.Operation.Id)
 		}
 	}
+	s.mu.Unlock()
 	if len(s.auditRelease) > 0 {
 		s.wg.Add(1)
 		go s.sweepGuardAudit()
 	}
+	s.wg.Add(1)
+	go s.recoverCapacity()
 	s.wg.Add(2)
 	go s.workRecovery()
 	go s.scheduler()
@@ -519,6 +565,21 @@ func Open(config Config) (*Service, error) {
 		s.wg.Add(1)
 		go s.ciController(pending)
 	}
+	s.metrics = map[string][]metricSample{}
+	if raw, err := os.ReadFile(filepath.Join(s.dir, "metrics.json")); err == nil {
+		var saved observations
+		_ = json.Unmarshal(raw, &saved)
+		s.metrics = saved.Samples
+		s.engineLogs = saved.EngineLogs
+		if s.metrics == nil {
+			s.metrics = map[string][]metricSample{}
+		}
+	}
+	if s.engineLogs == nil {
+		s.engineLogs = map[string]string{}
+	}
+	s.wg.Add(1)
+	go s.observeSandboxes()
 	return s, nil
 }
 func (s *Service) context() context.Context { return s.rootContext }
@@ -902,6 +963,9 @@ func removeCommitTemps(dir string) error {
 func (s *Service) Close() error {
 	s.readLock()
 	s.broken = true
+	for _, rt := range s.agentRuntimes {
+		rt.cancel()
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -925,6 +989,9 @@ func (s *Service) prepareDelta(ids ...string) ([]byte, journal, error) {
 	delta.Shares = map[string]api.Share{}
 	delta.Templates = map[string]cleanExport{}
 	for _, id := range ids {
+		if sid, ok := strings.CutPrefix(id, "$purge:"); ok {
+			delta.PurgedSandboxes = append(delta.PurgedSandboxes, sid)
+		}
 		if rec, ok := s.journal.Operations[id]; ok {
 			delta.Operations[id] = rec
 		}
@@ -1129,6 +1196,7 @@ func (s *Service) releaseAdmission(rec *record, source string) {
 			delete(s.starting, source)
 		}
 	} else {
+		delete(s.busy, rec.Resource.Id)
 		delete(s.busy, source)
 	}
 }

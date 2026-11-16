@@ -18,7 +18,7 @@ mod linux {
     use std::process::Command;
     use std::time::{Duration, Instant};
 
-    const HELPER: &str = "/sbin/lamp-guest-helper";
+    const HELPER: &str = "/run/lamp/lamp-guest-helper";
 
     fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong, data: &str) {
         let _ = std::fs::create_dir_all(target);
@@ -60,6 +60,29 @@ mod linux {
             {
                 Ok(s) if s.success() => {}
                 other => eprintln!("lamp-init: ip {args:?}: {other:?}"),
+            }
+        }
+        // A seed may contain the build host's systemd-resolved stub. This
+        // guest runs Lamp as PID 1, so no local DNS daemon serves that address.
+        // Managed links intercept DNS to this numeric resolver and use the
+        // sandbox's selected exit; the legacy adapter can also route it.
+        let resolver = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+        let usable = resolver.lines().any(|line| {
+            let mut words = line.split_whitespace();
+            words.next() == Some("nameserver")
+                && words
+                    .next()
+                    .and_then(|s| s.parse::<std::net::IpAddr>().ok())
+                    .is_some_and(|ip| !ip.is_loopback() && !ip.is_unspecified())
+        });
+        if !usable {
+            if let Err(e) = std::fs::write(
+                "/etc/resolv.conf.lamp",
+                "nameserver 1.1.1.1\noptions timeout:2 attempts:2\n",
+            )
+            .and_then(|()| std::fs::rename("/etc/resolv.conf.lamp", "/etc/resolv.conf"))
+            {
+                eprintln!("lamp-init: configure DNS: {e}");
             }
         }
     }
@@ -105,6 +128,14 @@ mod linux {
         mount("proc", "/proc", "proc", nosuid, "");
         mount("sysfs", "/sys", "sysfs", nosuid, "");
         mount("devtmpfs", "/dev", "devtmpfs", libc::MS_NOSUID, "mode=0755");
+        // Nested guest networks use TUN under their own user/network namespace.
+        // Opening the device grants no authority over the VM's parent NIC.
+        if std::path::Path::new("/dev/net/tun").exists()
+            && let Err(error) =
+                std::fs::set_permissions("/dev/net/tun", std::fs::Permissions::from_mode(0o666))
+        {
+            eprintln!("lamp-init: TUN permissions: {error}");
+        }
         mount(
             "devpts",
             "/dev/pts",
@@ -126,13 +157,6 @@ mod linux {
             libc::MS_NOSUID | libc::MS_NODEV,
             "mode=0755",
         );
-        mount(
-            "tmpfs",
-            "/tmp",
-            "tmpfs",
-            libc::MS_NOSUID | libc::MS_NODEV,
-            "mode=1777",
-        );
         // Commands start in the tasks cgroup. Guest root may move anywhere in
         // the hierarchy, so the helper's capture freeze covers every cgroup,
         // not just this one; init and the helper stay in the root cgroup.
@@ -140,7 +164,37 @@ mod linux {
         if let Err(e) = std::fs::create_dir_all(lamp_init::TASKS_CGROUP) {
             eprintln!("lamp-init: create tasks cgroup: {e}");
         }
-        let _ = std::fs::create_dir_all("/run/lamp");
+        std::fs::create_dir_all("/run/lamp").expect("trusted runtime directory");
+        std::fs::set_permissions("/run/lamp", std::fs::Permissions::from_mode(0o700))
+            .expect("protect runtime");
+        // Protect disk inodes too: a read-only bind alone can be bypassed by
+        // making a hard link through the writable root mount. Task namespaces
+        // cannot clear the kernel-root immutable flag.
+        use std::os::fd::AsRawFd;
+        for binary in ["lamp-init", "lamp-guest-helper", "lamp-guard"] {
+            let file =
+                std::fs::File::open(format!("/usr/sbin/{binary}")).expect("trusted boot binary");
+            let mut flags: libc::c_long = 0;
+            unsafe {
+                assert_eq!(
+                    libc::ioctl(file.as_raw_fd(), 0x80086601u64 as _, &mut flags),
+                    0,
+                    "read trusted inode flags"
+                );
+                flags |= 0x10;
+                assert_eq!(
+                    libc::ioctl(file.as_raw_fd(), 0x40086602u64 as _, &flags),
+                    0,
+                    "protect trusted inode"
+                );
+            }
+        }
+        for binary in ["lamp-guest-helper", "lamp-guard"] {
+            std::fs::copy(format!("/usr/sbin/{binary}"), format!("/run/lamp/{binary}"))
+                .expect("pin trusted runtime binary");
+        }
+        std::fs::set_permissions("/run", std::fs::Permissions::from_mode(0o1777))
+            .expect("guest runtime directory");
         // Containerd uses /run/containerd for shim sockets/FIFOs even with a
         // custom state directory. Prepare only this guest runtime directory;
         // confined tasks keep their mapped UID and cannot write the rest of /run.
@@ -175,7 +229,7 @@ mod linux {
                     .env_clear()
                     .env(
                         "PATH",
-                        "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                     )
                     .env("HOME", "/root")
                     .env("LANG", "C.UTF-8")

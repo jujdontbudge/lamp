@@ -19,7 +19,8 @@ import (
 // AuthenticateLocal admits the one OS owner of the private public API socket.
 func AuthenticateLocal(conn *net.UnixConn) error { return authenticatePeer(conn, os.Geteuid(), 0) }
 
-// WorkerConfig pins the locally enrolled supervisor, not a caller-supplied address.
+// WorkerConfig identifies the locally enrolled supervisor, not a caller-supplied address.
+// PID is a legacy enrollment hint; connections authenticate UID and Hello identity.
 // GrantID names a supervisor-installed control grant; this client never opens RAM,
 // disk, or hypervisor handles and cannot mint engine authority.
 type WorkerConfig struct {
@@ -31,9 +32,11 @@ type workerClient struct {
 	config  WorkerConfig
 	mu      sync.Mutex
 	conn    *net.UnixConn
+	version string
 	maximum uint32
 	pending map[string]*workerPending
 	closed  bool
+	epoch   uint64
 }
 type workerFailure struct {
 	code, message string
@@ -66,7 +69,7 @@ func (w *workerClient) disconnect() {
 		w.conn = nil
 	}
 	for id, pending := range w.pending {
-		pending.reply <- workerReply{err: &workerFailure{code: "OUTCOME_UNKNOWN", message: "worker transport lost", unknown: true}}
+		pending.reply <- workerReply{err: &workerFailure{code: "OUTCOME_UNKNOWN", message: "connection to the execution service (worker) was lost; the outcome is unknown; inspect the operation before retrying with the same idempotency key", unknown: true}}
 		delete(w.pending, id)
 	}
 }
@@ -101,7 +104,7 @@ func (w *workerClient) connect(ctx context.Context) error {
 			<-stopped
 		}
 	}()
-	if err := authenticatePeer(w.conn, w.config.UID, w.config.PID); err != nil {
+	if err := authenticatePeer(w.conn, w.config.UID, 0); err != nil {
 		w.disconnect()
 		return err
 	}
@@ -122,6 +125,8 @@ func (w *workerClient) connect(ctx context.Context) error {
 		w.disconnect()
 		return errors.New("unassigned worker or incompatible Hello")
 	}
+	w.epoch++
+	w.version = got.ReleaseVersion
 	w.maximum = got.MaxControlBytes
 	conn.SetDeadline(time.Time{})
 	if w.pending == nil {
@@ -173,11 +178,11 @@ func (w *workerClient) call(ctx context.Context, r *pb.Request) (*pb.Receipt, er
 	w.mu.Lock()
 	if err := ctx.Err(); err != nil {
 		w.mu.Unlock()
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: "cannot reach the enrolled execution service (worker): " + err.Error() + "; check that the supervisor is running and its socket and enrollment match lampd"}
 	}
 	if err := w.connect(ctx); err != nil {
 		w.mu.Unlock()
-		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: err.Error()}
+		return nil, &workerFailure{code: "HOST_UNAVAILABLE", message: "cannot reach the enrolled execution service (worker): " + err.Error() + "; check that the supervisor is running and its socket and enrollment match lampd"}
 	}
 	f := &pb.Frame{Payload: &pb.Frame_Request{Request: r}}
 	if proto.Size(f) > int(w.maximum) {
@@ -240,4 +245,10 @@ func (w *workerClient) perform(ctx context.Context, r *pb.Request, want string) 
 		}
 	}
 	return nil
+}
+
+func (w *workerClient) connectionState() (uint64, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.epoch, w.conn != nil
 }

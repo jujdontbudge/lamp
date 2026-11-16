@@ -49,7 +49,7 @@ use std::time::{Duration, Instant};
 
 pub const ENGINE_NAME: &str = "firecracker-1.17.0";
 pub const STATE_ABI: &str = "firecracker-1.17.0/snapshot";
-pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs,vsock:cid3,serial,virtio-net:eth0-lamp0";
+pub const DEVICE_GRAPH: &str = "virtio-blk:rootfs:async-v1,vsock:cid3,serial,virtio-net:eth0-lamp0";
 pub const STANDARD: Resources = Resources {
     vcpus: 2,
     memory_mib: 4096,
@@ -569,6 +569,9 @@ fn apply_guest_limits(
         cwd: String::new(),
         timeout_ms: 10_000,
         output_limit: 4096,
+        stdin_path: String::new(),
+        pty: false,
+        stdin_open: false,
         audit: None,
     });
     let mut conn = guest::send(vsock, &req)?;
@@ -1188,6 +1191,21 @@ impl Engine {
         pids_max: Option<u64>,
         devices: &[DeviceRequest],
     ) -> Result<Outcome> {
+        self.allocate_plan(auth, requested, pids_max, devices, false, "", false)
+    }
+
+    /// The same admission used by Allocate, without creating host resources.
+    #[allow(clippy::too_many_arguments)]
+    pub fn allocate_plan(
+        &self,
+        auth: Authority<'_>,
+        requested: Option<Resources>,
+        pids_max: Option<u64>,
+        devices: &[DeviceRequest],
+        validate_only: bool,
+        template_id: &str,
+        shared_disk: bool,
+    ) -> Result<Outcome> {
         if !valid_id(auth.sandbox_id, "sb_") {
             return Err(EngineError::invalid(
                 "sandbox_id must match sb_[a-z0-9_]+ (≤60)",
@@ -1205,7 +1223,14 @@ impl Engine {
                 "vcpus must be 1 or an even number ≤ 32",
             ));
         }
-        if resources.memory_mib < 128 || resources.disk_gib == 0 || resources.disk_gib > 65536 {
+        if resources.memory_mib < 128
+            || resources
+                .memory_mib
+                .checked_add(VMM_ALLOWANCE_MIB)
+                .is_none()
+            || resources.disk_gib == 0
+            || resources.disk_gib > 65536
+        {
             return Err(EngineError::invalid(
                 "memory_mib must be ≥128 and disk_gib 1..=65536",
             ));
@@ -1245,7 +1270,23 @@ impl Engine {
                 auth.sandbox_id
             )));
         }
-        self.admit(&all, &resources, extra_mib)?;
+        if !template_id.is_empty() {
+            let t = self.template(template_id)?;
+            self.template_disk(&t)?;
+            if resources.disk_gib < t.variant.resources.disk_gib {
+                return Err(EngineError::invalid(format!(
+                    "template {} needs resources.disk_gib of at least {} GiB",
+                    t.id, t.variant.resources.disk_gib
+                )));
+            }
+        }
+        self.admit(&all, &resources, extra_mib, shared_disk)?;
+        if validate_only {
+            return Ok(Outcome {
+                state: "validated".into(),
+                ..Default::default()
+            });
+        }
         // A released id that is allocated again (a resumed sandbox) keeps its
         // custody record: its lineage and exposures carry over, never reset.
         self.custody
@@ -1266,7 +1307,14 @@ impl Engine {
         // caller captures the source next, and the two overlap.
         let pending_net = match &self.cfg.network {
             Some(policy) if self.cfg.subscription.is_none() => {
-                let guard_uid = self.alloc_uid()?;
+                let guard_uid = match self.alloc_uid() {
+                    Ok(uid) => uid,
+                    Err(err) => {
+                        jail.destroy();
+                        self.free_uid(uid);
+                        return Err(err);
+                    }
+                };
                 let (policy, inventory, host) = (
                     policy.clone(),
                     self.inventory.clone(),
@@ -1340,6 +1388,7 @@ impl Engine {
         all: &HashMap<String, Arc<Mutex<Sandbox>>>,
         r: &Resources,
         extra_mib: u64,
+        shared_disk: bool,
     ) -> Result<()> {
         let host = HostCapacity::detect(&self.cfg.store)?;
         let (mut mem, mut pending, mut cpus, mut disk) = (0u64, 0u64, 0u32, 0u64);
@@ -1355,15 +1404,22 @@ impl Engine {
                 pending += charge;
             }
             cpus += sb.resources.vcpus;
-            disk += sb.resources.disk_gib
-                + sb.disks
-                    .iter()
-                    .map(|d| d.size_mib)
-                    .sum::<u64>()
-                    .div_ceil(1024);
+            disk += if sb.state == State::Allocated {
+                sb.resources.disk_gib
+            } else {
+                0
+            } + sb
+                .disks
+                .iter()
+                .map(|d| d.size_mib)
+                .sum::<u64>()
+                .div_ceil(1024);
         }
         let charge = r.memory_mib + VMM_ALLOWANCE_MIB;
-        let want_disk = r.disk_gib + extra_mib.div_ceil(1024);
+        // Reflink forks reserve 1 GiB for initial CoW writes. Existing resident
+        // disks are already reflected in filesystem free space; only pending
+        // allocations need an additional physical reservation.
+        let want_disk = if shared_disk { 1 } else { r.disk_gib } + extra_mib.div_ceil(1024);
         let refuse = |what: String| {
             Err(EngineError::new(
                 "NO_CAPACITY",
@@ -1822,6 +1878,7 @@ impl Engine {
                         .and_then(|f| f.set_len(disk_bytes))
                         .ctx("grow working disk")?;
                 }
+                crate::build::resize_ext4(&path)?;
                 Ok(())
             })();
             if let Err(e) = grown {
@@ -1836,43 +1893,45 @@ impl Engine {
         sb.parent = parent;
         detail.insert("prepare_us".into(), us(t0.elapsed()));
         let t = Instant::now();
-        match &sb.network_policy {
-            Some(policy) => {
-                let (guard_uid, attached) = match sb.pending_net.take() {
-                    Some(pending) => pending
-                        .join()
-                        .map_err(|_| EngineError::host("network attachment thread panicked"))?,
-                    None => {
-                        let guard_uid = self.alloc_uid()?;
-                        let attached = crate::net::Attachment::attach(
-                            policy,
-                            &self.inventory,
-                            &crate::net::Target::of(jail),
-                            guard_uid,
-                            crate::net::Identity {
-                                host_id: &self.cfg.host_id,
-                                sandbox_id: &sb.id,
-                                generation: sb.generation,
-                                operation_id: "op_restore",
-                            },
-                        );
-                        (guard_uid, attached)
-                    }
-                };
-                match attached {
-                    Ok(a) => {
-                        for (k, v) in &a.timings {
-                            detail.insert(k.clone(), v.to_string());
+        if sb.net.is_none() {
+            match &sb.network_policy {
+                Some(policy) => {
+                    let (guard_uid, attached) = match sb.pending_net.take() {
+                        Some(pending) => pending
+                            .join()
+                            .map_err(|_| EngineError::host("network attachment thread panicked"))?,
+                        None => {
+                            let guard_uid = self.alloc_uid()?;
+                            let attached = crate::net::Attachment::attach(
+                                policy,
+                                &self.inventory,
+                                &crate::net::Target::of(jail),
+                                guard_uid,
+                                crate::net::Identity {
+                                    host_id: &self.cfg.host_id,
+                                    sandbox_id: &sb.id,
+                                    generation: sb.generation,
+                                    operation_id: "op_restore",
+                                },
+                            );
+                            (guard_uid, attached)
                         }
-                        sb.net = Some(a);
-                    }
-                    Err(e) => {
-                        self.free_uid(guard_uid);
-                        return Err(e);
+                    };
+                    match attached {
+                        Ok(a) => {
+                            for (k, v) in &a.timings {
+                                detail.insert(k.clone(), v.to_string());
+                            }
+                            sb.net = Some(a);
+                        }
+                        Err(e) => {
+                            self.free_uid(guard_uid);
+                            return Err(e);
+                        }
                     }
                 }
+                None => crate::net::tap_only(jail)?,
             }
-            None => crate::net::tap_only(jail)?,
         }
         detail.insert("attach_us".into(), us(t.elapsed()));
         let jail = sb.jail.as_mut().unwrap();
@@ -1885,7 +1944,11 @@ impl Engine {
         // until the barrier below thaws the tasks with the new identity.
         // Firecracker refuses clock_realtime on aarch64 ("not supported");
         // there the guest clock is set after the identity barrier instead.
-        let clock = if cfg!(target_arch = "x86_64") { r#","clock_realtime":true"# } else { "" };
+        let clock = if cfg!(target_arch = "x86_64") {
+            r#","clock_realtime":true"#
+        } else {
+            ""
+        };
         let body = format!(
             r#"{{"snapshot_path":"/{}/{}","mem_backend":{{"backend_type":"File","backend_path":{}}},"track_dirty_pages":false,"resume_vm":true{}}}"#,
             fc::MEMDIR,
@@ -1967,14 +2030,14 @@ impl Engine {
         jail.api(
             "PUT",
             "/drives/rootfs",
-            &format!(r#"{{"drive_id":"rootfs","path_on_host":"/{}","is_root_device":true,"is_read_only":false}}"#, fc::ROOTFS),
+            &format!(r#"{{"drive_id":"rootfs","path_on_host":"/{}","is_root_device":true,"is_read_only":false,"io_engine":"Async"}}"#, fc::ROOTFS),
         )?;
         for d in disks {
             jail.api(
                 "PUT",
                 &format!("/drives/x_{}", d.id),
                 &format!(
-                    r#"{{"drive_id":"x_{}","path_on_host":"/disk-{}.img","is_root_device":false,"is_read_only":false}}"#,
+                    r#"{{"drive_id":"x_{}","path_on_host":"/disk-{}.img","is_root_device":false,"is_read_only":false,"io_engine":"Async"}}"#,
                     d.id, d.id
                 ),
             )?;
@@ -2041,6 +2104,41 @@ impl Engine {
                 "identity barrier: unexpected reply {other:?}"
             ))),
         }
+    }
+
+    pub fn network_call(&self, auth: Authority<'_>, request: Vec<u8>) -> Result<Outcome> {
+        let sandbox = self.sandbox(auth.sandbox_id)?;
+        let mut sb = sandbox.lock().unwrap();
+        Self::check(&sb, auth)?;
+        if sb.state == State::Allocated && sb.net.is_none() {
+            if let Some(pending) = sb.pending_net.take() {
+                let (uid, attached) = pending
+                    .join()
+                    .map_err(|_| EngineError::host("network attachment thread panicked"))?;
+                match attached {
+                    Ok(a) => sb.net = Some(a),
+                    Err(e) => {
+                        self.free_uid(uid);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        if sb.state != State::Running && sb.state != State::Allocated {
+            return Err(EngineError::in_use(
+                "sandbox has no active network generation",
+            ));
+        }
+        let net = sb.net.as_mut().ok_or_else(|| {
+            EngineError::new("ENGINE_UNQUALIFIED", "sandbox has no managed network")
+        })?;
+        let data = net.call(&request)?;
+        Ok(Outcome {
+            state: "network_reply".into(),
+            handles: vec![],
+            command: None,
+            detail: BTreeMap::from([("response_json".into(), data.to_string())]),
+        })
     }
 
     pub fn session_call(
@@ -2110,6 +2208,32 @@ impl Engine {
         env: BTreeMap<String, String>,
         timeout_ms: u64,
     ) -> Result<Outcome> {
+        self.start_io(
+            auth,
+            operation_id,
+            argv,
+            cwd,
+            env,
+            timeout_ms,
+            String::new(),
+            false,
+            false,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_io(
+        &self,
+        auth: Authority<'_>,
+        operation_id: &str,
+        argv: Vec<String>,
+        cwd: String,
+        env: BTreeMap<String, String>,
+        timeout_ms: u64,
+        stdin_path: String,
+        pty: bool,
+        stdin_open: bool,
+    ) -> Result<Outcome> {
         if argv.is_empty() {
             return Err(EngineError::invalid("argv is empty"));
         }
@@ -2161,6 +2285,9 @@ impl Engine {
             cwd,
             timeout_ms,
             output_limit: lamp_init::DEFAULT_OUTPUT_LIMIT,
+            stdin_path,
+            pty,
+            stdin_open,
             audit: audited.then_some(lamp_init::Audit {
                 port: lamp_init::AUDIT_PORT,
                 task_uid: crate::net::TASK_UID,
@@ -2234,6 +2361,42 @@ impl Engine {
     }
 
     /// The state of a command started on this sandbox.
+
+    pub fn exec_io(&self, auth: Authority<'_>, bytes: Vec<u8>) -> Result<Outcome> {
+        let mut request: lamp_init::ExecIo =
+            serde_json::from_slice(&bytes).map_err(|e| EngineError::invalid(e.to_string()))?;
+        request.sandbox_id = auth.sandbox_id.into();
+        request.generation = auth.generation;
+        let vsock = {
+            let sb = self.sandbox(auth.sandbox_id)?;
+            let sb = sb.lock().unwrap();
+            Self::check(&sb, auth)?;
+            sb.jail
+                .as_ref()
+                .ok_or_else(|| EngineError::host("sandbox is not running"))?
+                .path(fc::VSOCK)
+        };
+        match guest::call(
+            &vsock,
+            &GuestRequest::ExecIo(request),
+            Duration::from_secs(5),
+        )? {
+            GuestResponse::SessionReply { response_json } => Ok(Outcome {
+                state: "session_reply".into(),
+                detail: BTreeMap::from([("response_json".into(), response_json)]),
+                ..Default::default()
+            }),
+            GuestResponse::Error { code, message } => Err(EngineError::new(
+                if code == "GENERATION_MISMATCH" {
+                    "REVISION_CONFLICT"
+                } else {
+                    "DATA_UNAVAILABLE"
+                },
+                message,
+            )),
+            _ => Err(EngineError::host("unexpected command I/O reply")),
+        }
+    }
     pub fn command(&self, sandbox_id: &str, operation_id: &str) -> Result<CommandRec> {
         let commands = self.sandbox(sandbox_id)?.lock().unwrap().commands.clone();
         let table = commands.lock().unwrap();
@@ -2869,7 +3032,8 @@ impl Engine {
         std::fs::create_dir(dir).ctx("create export dir")?;
         let full = dir.join("full.mem");
         self.materialize(cid, &full, dir, 0)?;
-        memimg::encode(&full, &t.dir.join(fc::MEM), &dir.join("mem"), true, true)?;
+        let base = self.template_base(&t, e.manifest.memory.image_bytes)?;
+        memimg::encode(&full, &base, &dir.join("mem"), true, true)?;
         std::fs::remove_file(&full)?;
         std::fs::copy(
             self.state.object(&e.manifest.vmstate.object),
@@ -2913,6 +3077,19 @@ impl Engine {
         m.disk.digest = Some(fsutil::digest_file(&disk_out)?.digest);
         m.sign(&self.producer)?;
         std::fs::write(dir.join("manifest.json"), manifest::canonical_json(&m)?)?;
+        // The administrator exports into a caller-owned private parent. Hand
+        // the bundle to that owner so lampd can seal it without root access.
+        use std::os::unix::fs::MetadataExt;
+        let parent = std::fs::metadata(
+            dir.parent()
+                .ok_or_else(|| EngineError::invalid("export parent required"))?,
+        )?;
+        for name in ["mem", "vmstate", "disk", "manifest.json"] {
+            fsutil::chown(&dir.join(name), parent.uid(), parent.gid())?;
+            fsutil::chmod(&dir.join(name), 0o600)?;
+        }
+        fsutil::chown(dir, parent.uid(), parent.gid())?;
+        fsutil::chmod(dir, 0o700)?;
         Ok(())
     }
 
@@ -2970,7 +3147,33 @@ impl Engine {
                 "bundle is for another host",
             )));
         }
-        let cid = m.capture_id.clone();
+        let cid = if self.state.exists(&m.capture_id) {
+            format!(
+                "cp_{}",
+                lamp_init::hex_encode(&fsutil::random_bytes::<16>())
+            )
+        } else {
+            m.capture_id.clone()
+        };
+        if cid != m.capture_id {
+            self.custody
+                .as_ref()
+                .ok_or_else(|| EngineError::new("DATA_UNAVAILABLE", "custody unavailable"))?
+                .lock()
+                .unwrap()
+                .transact(|graph| {
+                    graph.derive(
+                        &m.capture_id,
+                        &cid,
+                        crate::custody::Destination {
+                            principal: self.custody_owner(),
+                            host: &self.cfg.host_id,
+                            online: true,
+                        },
+                        crate::custody::CapturePurpose::OwnerPrivate,
+                    )
+                })?;
+        }
         let (mem_name, vmstate_name, disk_name) = durable::object_names(&cid);
         let thin = match &self.disk {
             disk::Backend::Thin(pool) => Some(pool.new_id()),
@@ -3004,6 +3207,7 @@ impl Engine {
             };
             self.state.publish_objects(&names)?;
             let mut local = m.clone();
+            local.capture_id = cid.clone();
             local.memory.object = mem_name.clone();
             local.vmstate.object = vmstate_name.clone();
             local.disk.disk = disk.encode();
@@ -3040,7 +3244,8 @@ impl Engine {
         let arc = self.sandbox(auth.sandbox_id)?;
         {
             let mut sb = arc.lock().unwrap();
-            Self::check(&sb, auth)?;
+            // Release is authorized by the supervisor's cleanup grant, across
+            // generations, so a failed resume cannot make a sandbox undeletable.
             if let Some(uid) = sb.teardown() {
                 self.free_uid(uid);
             }
@@ -3061,7 +3266,20 @@ impl Engine {
         let sb = self.sandbox(sandbox_id)?;
         let mut sb = sb.lock().unwrap();
         if sb.state == State::Running && !sb.jail.as_ref().is_some_and(Jail::alive) {
-            sb.state = State::Failed("VMM exited".into());
+            let reason = sb
+                .jail
+                .as_ref()
+                .and_then(|jail| {
+                    std::fs::read_to_string(fc::cgroup_dir(&jail.id).join("memory.events")).ok()
+                })
+                .is_some_and(|events| {
+                    events.lines().any(|line| {
+                        line.strip_prefix("oom_kill ")
+                            .and_then(|n| n.parse::<u64>().ok())
+                            .is_some_and(|n| n > 0)
+                    })
+                });
+            sb.state = State::Failed(if reason { "oom_killed" } else { "VMM exited" }.into());
         }
         let mut detail = BTreeMap::new();
         detail.insert("generation".into(), sb.generation.to_string());
@@ -3102,6 +3320,32 @@ impl Engine {
         if let Some(pid) = sb.jail.as_ref().and_then(|j| j.pid) {
             detail.insert("vmm_pid".into(), pid.to_string());
             detail.insert("vmm_uid".into(), sb.uid.to_string());
+        }
+        if command_operation_id.is_empty()
+            && let Some(jail) = &sb.jail
+        {
+            detail.insert(
+                "boot_log".into(),
+                fsutil::log_tail(&jail.dir.join("vmm.log")),
+            );
+        }
+        // Empty Inspect is the read-only telemetry path. Command polling stays cheap.
+        if command_operation_id.is_empty()
+            && sb.state == State::Running
+            && let Some(vsock) = sb.jail.as_ref().map(|j| j.path(fc::VSOCK))
+            && let Ok(GuestResponse::Pong(status)) = guest::call(
+                &vsock,
+                &GuestRequest::Ping(Empty {}),
+                Duration::from_secs(2),
+            )
+            && status.sandbox_id == sb.id
+            && status.generation == sb.generation
+        {
+            detail.insert(
+                "metrics".into(),
+                serde_json::to_string(&status.metrics).unwrap(),
+            );
+            detail.insert("metrics_boot_id".into(), status.kernel_boot_id);
         }
         let command = if command_operation_id.is_empty() {
             None
@@ -3210,4 +3454,40 @@ fn sparse_copy(src: &Path, dst: &Path) -> Result<()> {
     }
     d.sync_all()?;
     Ok(())
+}
+
+impl Engine {
+    pub fn mount_storage(
+        &self,
+        auth: Authority<'_>,
+        socket: &str,
+        path: &str,
+        read_only: bool,
+        unmount: bool,
+        caller_uid: u32,
+    ) -> Result<Outcome> {
+        let arc = self.sandbox(auth.sandbox_id)?;
+        let sb = arc.lock().unwrap();
+        Self::check(&sb, auth)?;
+        let vsock = sb
+            .jail
+            .as_ref()
+            .ok_or_else(|| EngineError::in_use("no jail"))?
+            .path(fc::VSOCK);
+        drop(sb);
+        crate::storage::mount(
+            &vsock,
+            auth.sandbox_id,
+            auth.generation,
+            socket,
+            path,
+            read_only,
+            unmount,
+            caller_uid,
+        )?;
+        Ok(Outcome {
+            state: if unmount { "unmounted" } else { "mounted" }.into(),
+            ..Default::default()
+        })
+    }
 }

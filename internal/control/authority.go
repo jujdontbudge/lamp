@@ -36,6 +36,9 @@ type storedKey struct {
 	SHA256 string  `json:"sha256"`
 }
 type controlState struct {
+	Configurations   map[string]api.Configuration `json:"configurations,omitempty"`
+	Plugins          map[string]map[string]any    `json:"plugins,omitempty"`
+	Grants           map[string]api.Grant         `json:"grants,omitempty"`
 	OwnerID          string                       `json:"owner_id"`
 	Credentialed     bool                         `json:"credentialed"`
 	CursorSecret     string                       `json:"cursor_secret"`
@@ -101,7 +104,13 @@ func (s *Service) initAuthority(config Config) error {
 }
 func bearerHash(v string) string { sum := sha256.Sum256([]byte(v)); return hex.EncodeToString(sum[:]) }
 func (s *Service) authenticate(r *http.Request) (caller, bool) {
+	if a, ok := r.Context().Value(agentCallerKey{}).(caller); ok {
+		return a, s.current(a)
+	}
 	c := s.journal.Control
+	if owner, ok := r.Context().Value(dashboardOwnerKey{}).(string); ok && owner == c.OwnerID {
+		return caller{Principal: owner}, true
+	}
 	values := r.Header.Values("Authorization")
 	if len(values) == 0 && !c.Credentialed {
 		return caller{Principal: c.OwnerID}, true
@@ -206,6 +215,12 @@ func (s *Service) scopes(a caller) []api.Scope {
 	return []api.Scope{*k.Key.Scope}
 }
 func (s *Service) can(a caller, action string) bool {
+	if s.controlGrantRevoked() {
+		switch action {
+		case "sandbox.create", "sandbox.fork", "sandbox.resume", "exec.create", "snapshot.create", "connection.invoke":
+			return false
+		}
+	}
 	if !s.current(a) {
 		return false
 	}
@@ -360,7 +375,7 @@ func (s *Service) sandboxCharged(sb api.Sandbox) bool {
 	} // Stop/Release independently confirmed.
 	if sb.State == "failed" {
 		for _, rec := range s.journal.Operations {
-			if rec.Resource.Kind == "sandbox" && rec.Resource.Id == sb.Id && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") && rec.Operation.State == "canceled" && value(rec.Operation.CancelEffect) == "prevented" && value(rec.Operation.CleanupState) == "complete" {
+			if rec.Resource.Kind == "sandbox" && rec.Resource.Id == sb.Id && (value(rec.Operation.OperationName) == "sandbox_create" || value(rec.Operation.OperationName) == "sandbox_fork") && value(rec.Operation.CleanupState) == "complete" {
 				return false
 			}
 		}
@@ -453,7 +468,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.readLock()
 	a, authenticated := s.authenticate(r)
-	allowed := authenticated && s.can(a, op.Scope)
+	// Installed handler names contain no resource data or execution authority.
+	discovery := op.Name == "docs_read" && r.URL.Query().Get("topic") == "operations"
+	allowed := authenticated && (s.can(a, op.Scope) || discovery)
 	broken := s.broken
 	s.mu.Unlock()
 	if broken {
@@ -461,11 +478,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !authenticated {
-		writeError(w, id, "UNAUTHENTICATED", "valid caller credential required", nil)
+		writeError(w, id, "UNAUTHENTICATED", "valid caller credential required; set LAMP_TOKEN_FILE to the installed config/owner.token or supply LAMP_TOKEN", nil)
 		return
 	}
 	if !allowed {
-		writeError(w, id, "SCOPE_DENIED", "action not permitted", nil)
+		writeError(w, id, "SCOPE_DENIED", "action "+op.Scope+" is not permitted; use a key with this action and the required resource scope", nil)
 		return
 	}
 	if s.native != nil && op.Mutation && (strings.HasPrefix(op.Name, "login_") || op.Name == "connection_invoke") {
@@ -479,12 +496,23 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), callerContext{}, a))
 	// The dashboard shows who is signed in without guessing from lists.
 	w.Header().Set("X-Lamp-Principal", a.Principal)
-	if op.Name == "plugin_get" && ciPluginID(textField(selectors, "plugin_id")) {
-		s.ciPluginHTTP(w, r, id, textField(selectors, "plugin_id"))
+	if op.Name == "auth_flow_complete" {
+		s.agentAuthCompleteHTTP(w, r, id, textField(selectors, "auth_flow_id"))
+		return
+	}
+	if op.Name == "secret_request" {
+		s.secretRequestHTTP(w, r, id, nil)
+		return
+	}
+	if op.Name == "secret_set" {
+		s.secretSetHTTP(w, r, id)
 		return
 	}
 	if kitOperation(op.Name) {
 		s.kitsHTTP(w, r, id, op, selectors)
+		return
+	}
+	if !s.templateInventoryHTTP(w, r, id, op) {
 		return
 	}
 	if s.cleanExportRead(op.Name, selectors) {
@@ -492,7 +520,12 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.engineHTTP(w, r)
 		return
 	}
-	if lifeOperation(op.Name) {
+	if op.Name == "sandbox_file_list" || op.Name == "sandbox_file_read" || op.Name == "sandbox_file_stat" || op.Name == "sandbox_file_search" || op.Name == "sandbox_file_watch" {
+		s.fileReadHTTP(w, r, id, op, selectors)
+		return
+	}
+	sharedControl := strings.HasPrefix(op.Name, "configuration_") || strings.HasPrefix(op.Name, "grant_")
+	if lifeOperation(op.Name) && !sharedControl {
 		s.lifeHTTP(w, r, id, op, selectors)
 		return
 	}
@@ -506,6 +539,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch op.Name {
+	case "sandbox_metrics", "sandbox_logs":
+		s.observabilityHTTP(w, r, id, op, selectors)
 	case "sandbox_create", "sandbox_fork", "sandbox_delete", "exec_create", "sandbox_get", "exec_get", "exec_watch", "operation_get",
 		"sandbox_suspend", "sandbox_resume", "snapshot_create", "snapshot_get",
 		"template_get", "blob_get", "blob_download":

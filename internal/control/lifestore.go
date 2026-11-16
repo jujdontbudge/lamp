@@ -30,11 +30,13 @@ const lifeStateFile = "lifecycle.json"
 // objects (map form) so reads return exactly what was committed; private
 // fields sit beside them and are never serialized to callers.
 type lifeState struct {
-	Jobs      map[string]*ciJob        `json:"jobs,omitempty"`
-	AuthFlows map[string]*ciAuthFlow   `json:"auth_flows,omitempty"`
-	Triggers  map[string]*lifeTrigger  `json:"triggers,omitempty"`
-	Schedules map[string]*lifeSchedule `json:"schedules,omitempty"`
-	Version   int                      `json:"version"`
+	Agents    map[string]agentEnrollment `json:"agents,omitempty"`
+	Networks  map[string]*lifeNetwork    `json:"networks,omitempty"`
+	Jobs      map[string]*ciJob          `json:"jobs,omitempty"`
+	AuthFlows map[string]*ciAuthFlow     `json:"auth_flows,omitempty"`
+	Triggers  map[string]*lifeTrigger    `json:"triggers,omitempty"`
+	Schedules map[string]*lifeSchedule   `json:"schedules,omitempty"`
+	Version   int                        `json:"version"`
 	// HighWater is the latest host time this service has observed. Deadlines
 	// are compared against max(now, HighWater): a clock rollback can never
 	// extend a retention or expiry deadline.
@@ -107,7 +109,11 @@ type lifeBackup struct {
 	File string         `json:"file"`
 }
 type lifeTemplate struct {
-	R map[string]any `json:"r"`
+	Building bool           `json:"building,omitempty"`
+	Archive  string         `json:"archive,omitempty"`
+	Flexible bool           `json:"flexible,omitempty"`
+	Engine   bool           `json:"engine,omitempty"`
+	R        map[string]any `json:"r"`
 	// Capture is the engine's durable capture that new sandboxes restore.
 	Capture string `json:"capture"`
 	// Resources must match the capture exactly.
@@ -146,10 +152,11 @@ type lifeSandbox struct {
 	// create command, so restart reconciliation probes it instead.
 	Resumed uint64 `json:"resumed_generation,omitempty"`
 	// Activity is the last task session activity Lamp itself mediated
-	// (an exec admission or completion). It is in-memory only.
-	activity time.Time
-	idleFrom time.Time
-	waking   chan struct{}
+	// (an exec admission or completion). Persisted with the idle countdown.
+	Activity    time.Time `json:"activity,omitempty"`
+	IdleFrom    time.Time `json:"idle_from,omitempty"`
+	waking      chan struct{}
+	reconciling bool
 }
 
 func (s *Service) lifePath() string { return filepath.Join(s.dir, lifeStateFile) }
@@ -183,6 +190,20 @@ func (s *Service) loadLife() error {
 	for _, d := range []string{"objects", "objects/tmp", "backups"} {
 		if err := os.MkdirAll(filepath.Join(s.dir, d), 0700); err != nil {
 			return err
+		}
+	}
+	// Admission locks belong to the previous daemon. Its interrupted
+	// operations are outcome_unknown, and no network effects are replayed.
+	// Fresh owner requests must still be able to revoke surviving access.
+	for _, n := range st.Networks {
+		n.Pending = false
+	}
+	for _, t := range st.Templates {
+		if t.Building {
+			t.Building = false
+			t.R["state"] = "failed"
+			t.R["labels"] = map[string]any{"build_log": "build interrupted by daemon restart; outcome unknown; retry with a new idempotency key"}
+			editResource(t.R)
 		}
 	}
 	s.life = st
@@ -347,6 +368,11 @@ func (s *Service) readObjectRange(sum string, offset, length int64) ([]byte, int
 // referencedObjects lists every object still reachable from published state.
 func (s *Service) referencedObjects() map[string]bool {
 	refs := map[string]bool{}
+	for _, t := range s.life.Templates {
+		if textField(t.R, "state") != "deleted" && t.Archive != "" {
+			refs[t.Archive] = true
+		}
+	}
 	addTree := func(t tree) {
 		for _, e := range t {
 			if e.SHA256 != "" {

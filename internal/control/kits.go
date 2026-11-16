@@ -101,6 +101,16 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	// Lamp's public sandbox/exec API, whose handlers must remain able to run.
 	s.kitsMu.Lock()
 	defer s.kitsMu.Unlock()
+	if s.kitsSocket == "" && op.Name == "kit_list" {
+		items := []any{}
+		for name, description := range builtinKits {
+			entry := newResource("kit", requestCaller(r).Principal)
+			entry["id"], entry["name"], entry["labels"] = name, name, map[string]any{"lamp.description": description, "lamp.builtin": "true"}
+			items = append(items, entry)
+		}
+		prepareJSON(w, 200, map[string]any{"request_id": id, "items": items})()
+		return
+	}
 	if s.kitsSocket == "" {
 		writeError(w, id, "HOST_UNAVAILABLE", "start lampd with --kits-config or an enrolled --kits-socket", nil)
 		return
@@ -231,7 +241,7 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	key := a.Principal + "\n" + op.Name + "\n" + textField(in, "idempotency_key")
 	if old := s.keys[key]; old != "" {
 		rec := s.journal.Operations[old]
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != s.retryHash(op.Name, in)) {
 			s.mu.Unlock()
 			writeError(w, id, "IDEMPOTENCY_CONFLICT", "key already used", nil)
 			return
@@ -280,7 +290,7 @@ func (s *Service) kitsHTTP(w http.ResponseWriter, r *http.Request, id string, op
 	now := timestamp()
 	ref := api.ResourceRef{Kind: api.ResourceKind(kind), Id: resourceID}
 	refs := []api.ResourceRef{ref}
-	rec := &record{Caller: a, Hash: hash, Key: key, Resource: ref, Operation: api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "running", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, AcceptedAt: &now}}
+	rec := &record{Caller: a, Hash: hash, RetryHashV1: s.retryHash(op.Name, in), Key: key, Resource: ref, Operation: api.Operation{Id: operationID, Kind: "operation", FleetId: "fl_local", OwnerId: a.Principal, Revision: 1, CreatedAt: now, UpdatedAt: now, State: "running", Labels: api.StringMap{}, Visibility: "private", OperationName: pointer(op.Name), ResourceIds: &refs, AcceptedAt: &now}}
 	s.journal.Operations[operationID] = rec
 	s.keys[key] = operationID
 	s.done[operationID] = make(chan struct{})
@@ -315,16 +325,7 @@ func strconvUint(n uint64) string { return strconv.FormatUint(n, 10) }
 // Failed and pending kit intents do not have a successful completion document.
 // Preserve their saved error/operation ID instead of dereferencing nil or replaying.
 func (s *Service) sendKitMutation(w http.ResponseWriter, id string, rec *record, replay bool) {
-	if rec.Operation.Error != nil {
-		detail := *rec.Operation.Error
-		detail.OperationId = pointer(rec.Operation.Id)
-		prepareError(w, id, detail)()
-		return
-	}
-	if rec.Operation.Outcome == nil || rec.Operation.Outcome.Result == nil {
-		writeError(w, id, "OUTCOME_UNKNOWN", "kit intent has no committed completion; reconcile before retry", pointer(rec.Operation.Id))
-		return
-	}
+
 	s.sendCoreMutation(w, id, rec, replay, nil)
 }
 

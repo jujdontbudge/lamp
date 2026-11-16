@@ -1962,6 +1962,22 @@ export interface CredentialSourceListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
+export interface CredentialSourceRevokeCompletion {
+}
+export interface CredentialSourceRevokeInput {
+  "credential_source_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+}
+export interface CredentialSourceRevokeResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: CredentialSourceRevokeCompletion;
+}
 export interface CredentialSourceUpdateCompletion {
 }
 export interface CredentialSourceUpdateInput {
@@ -2072,7 +2088,7 @@ export interface EngineListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
-export type ErrorCode = "INVALID_ARGUMENT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SCOPE_DENIED" | "REVISION_CONFLICT" | "RESULT_EXPIRED" | "ENGINE_UNQUALIFIED" | "NO_CAPACITY" | "HOST_UNAVAILABLE" | "VM_REQUIRED" | "HOST_NOT_TRUSTED" | "APPROVAL_REQUIRED" | "IDEMPOTENCY_CONFLICT" | "RESOURCE_IN_USE" | "OUTCOME_UNKNOWN" | "TASK_AUTHORITY_EXPIRED" | "KEY_EPOCH_EXPIRED" | "CURSOR_EXPIRED" | "DEVICE_UNAVAILABLE" | "DEVICE_NOT_FORKABLE" | "AUTH_TRANSPORT_UNSUPPORTED" | "CONTINUATION_UNSUPPORTED" | "CLEAN_REBUILD_REQUIRED" | "TOKEN_CAP_UNENFORCEABLE" | "CONTROL_QUOTA_EXCEEDED" | "RATE_LIMITED" | "DATA_UNAVAILABLE" | "QUORUM_REQUIRED" | "IDEMPOTENCY_HOME_UNAVAILABLE" | "TOKEN_HOME_UNAVAILABLE" | "AUDIT_UNAVAILABLE";
+export type ErrorCode = "INVALID_ARGUMENT" | "UNAUTHENTICATED" | "NOT_FOUND" | "SCOPE_DENIED" | "REVISION_CONFLICT" | "RESULT_EXPIRED" | "ENGINE_UNQUALIFIED" | "NO_CAPACITY" | "HOST_UNAVAILABLE" | "VM_REQUIRED" | "HOST_NOT_TRUSTED" | "APPROVAL_REQUIRED" | "IDEMPOTENCY_CONFLICT" | "RESOURCE_IN_USE" | "OUTCOME_UNKNOWN" | "TASK_AUTHORITY_EXPIRED" | "KEY_EPOCH_EXPIRED" | "CURSOR_EXPIRED" | "DEVICE_UNAVAILABLE" | "DEVICE_NOT_FORKABLE" | "AUTH_TRANSPORT_UNSUPPORTED" | "CONTINUATION_UNSUPPORTED" | "CLEAN_REBUILD_REQUIRED" | "TOKEN_CAP_UNENFORCEABLE" | "CONTROL_QUOTA_EXCEEDED" | "RATE_LIMITED" | "DATA_UNAVAILABLE" | "QUORUM_REQUIRED" | "IDEMPOTENCY_HOME_UNAVAILABLE" | "TOKEN_HOME_UNAVAILABLE" | "AUDIT_UNAVAILABLE" | "FAILED_PRECONDITION";
 export interface ErrorDetail {
   "code": ErrorCode;
   "message": string;
@@ -2134,6 +2150,13 @@ export interface Exec {
   "exit_code"?: number;
   "signal"?: number;
   readonly "output_cursor"?: string;
+  "stdout_bytes"?: number;
+  "stderr_bytes"?: number;
+  "output_truncated"?: boolean;
+  "timed_out"?: boolean;
+  "timeout_ms"?: number;
+  readonly "failure_reason"?: string;
+  "stdin_open"?: boolean;
 }
 export interface ExecCreateCompletion {
   "exec_id": string;
@@ -2155,6 +2178,8 @@ export interface ExecCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "timeout_ms"?: number;
+  "stdin_open"?: boolean;
 }
 export interface ExecCreateResult {
   "operation_id": string;
@@ -2196,6 +2221,7 @@ export interface ExecInputInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   readonly "expected_revision": number;
+  "eof"?: boolean;
 }
 export interface ExecInputResult {
   "operation_id": string;
@@ -2226,6 +2252,7 @@ export interface ExecListInput {
   "cursor"?: string;
   readonly "limit"?: number;
   readonly "wait_ms"?: number;
+  "sandbox_id"?: string;
 }
 export interface ExecListResult {
   "items": Array<Exec>;
@@ -2417,6 +2444,8 @@ export interface Fleet {
   "coordination_state"?: "healthy" | "degraded" | "unavailable";
   "limits"?: Limits;
   "update_policy"?: UpdatePolicy;
+  readonly "unavailable_host_ids"?: Array<string>;
+  readonly "stranded_sandbox_ids"?: Array<string>;
 }
 export interface FleetGetInput {
   "fleet_id": string;
@@ -2619,6 +2648,28 @@ export interface Harness {
   "certification"?: string;
   "evidence_ref"?: string;
 }
+export interface HarnessEnrollCompletion {
+  "harness_id": string;
+}
+export interface HarnessEnrollInput {
+  "harness_id": string;
+  "model"?: string;
+  "credential_source_id"?: string;
+  "nested_create"?: boolean;
+  "settings_source_ids"?: Array<string>;
+  "connection_ids"?: Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+  "secret_names"?: Array<string>;
+}
+export interface HarnessEnrollResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: HarnessEnrollCompletion;
+}
 export interface HarnessGetInput {
   "harness_id": string;
 }
@@ -2667,6 +2718,7 @@ export interface Host {
   "engine_ids"?: Array<string>;
   "credential_owner_ids"?: Array<string>;
   readonly "heartbeat_at"?: string;
+  readonly "version"?: string;
 }
 export interface HostBenchCompletion {
 }
@@ -3158,7 +3210,7 @@ export interface KeyCreateInput {
   "principal_id"?: string;
   "parent_key_id"?: string;
   "scope"?: Scope;
-  "expires_at"?: string;
+  "expires_at": string;
   "labels"?: StringMap;
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
@@ -3479,7 +3531,7 @@ export interface LeaseRenewResult {
   "result"?: LeaseRenewCompletion;
 }
 export interface Lifecycle {
-  "idle_action"?: "suspend" | "delete" | "keep";
+  "idle_action"?: "suspend" | "delete" | "keep" | "stop";
   "idle_grace_seconds"?: number;
   "suspended_retention_seconds"?: number;
   "expires_at"?: string;
@@ -4843,6 +4895,37 @@ export interface RecipeUpdateResult {
   "operation"?: Operation;
   "result"?: RecipeUpdateCompletion;
 }
+export interface Relay {
+  readonly "id": string;
+  readonly "kind": "relay";
+  readonly "fleet_id": string;
+  "owner_id": string;
+  readonly "revision": number;
+  readonly "created_at": string;
+  readonly "updated_at": string;
+  readonly "state": "connected" | "disconnected";
+  "labels": StringMap;
+  "visibility": "private" | "shared";
+  "host_id"?: string;
+  "origin"?: string;
+}
+export interface RelayGetInput {
+  "relay_id": string;
+}
+export interface RelayGetResult {
+  "data": Relay;
+  "request_id": string;
+}
+export interface RelayListInput {
+  "cursor"?: string;
+  readonly "limit"?: number;
+  readonly "wait_ms"?: number;
+}
+export interface RelayListResult {
+  "items": Array<Relay>;
+  "next_cursor"?: string;
+  "request_id": string;
+}
 export interface ReplicaReceipt {
   "host_id"?: string;
   "manifest_digest"?: string;
@@ -4880,7 +4963,7 @@ export interface Resources {
   "vcpus": number;
   "memory_mib": number;
   "disk_gib": number;
-  "pids_max": number;
+  "pids_max"?: number;
 }
 export interface RevocationStatus {
   "enforcers"?: Array<EnforcerStatus>;
@@ -4934,6 +5017,25 @@ export interface Sandbox {
   "durability"?: "volatile" | "local" | "replicated" | "backup";
   "custody_host_ids"?: Array<string>;
   "exposures"?: Array<string>;
+  readonly "saved_state_until"?: string;
+  readonly "idle_countdown"?: { "action"?: string; "grace_seconds"?: number; "idle_since"?: string; "fires_at"?: string; "expires_at"?: string };
+}
+export type SandboxBrowserCompletion = AdapterDocument;
+export interface SandboxBrowserInput {
+  "sandbox_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  "action": "navigate" | "evaluate" | "screenshot" | "close";
+  "url"?: string;
+  "expression"?: string;
+}
+export interface SandboxBrowserResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxBrowserCompletion;
 }
 export interface SandboxCreateCompletion {
   "sandbox_id": string;
@@ -4960,6 +5062,8 @@ export interface SandboxCreateInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   "labels"?: StringMap;
+  "snapshot_id"?: string;
+  "budget_id"?: string;
 }
 export interface SandboxCreateResult {
   "operation_id": string;
@@ -4984,6 +5088,26 @@ export interface SandboxDeleteResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SandboxDeleteCompletion;
+}
+export type SandboxDesktopCompletion = AdapterDocument;
+export interface SandboxDesktopInput {
+  "sandbox_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  "action": "info" | "move" | "click" | "type" | "key" | "screenshot" | "record_start" | "record_stop";
+  "x"?: number;
+  "y"?: number;
+  "text"?: string;
+  "key"?: string;
+  "button"?: number;
+}
+export interface SandboxDesktopResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxDesktopCompletion;
 }
 export interface SandboxDeviceInputCompletion {
   "device_ref": DeviceRef;
@@ -5041,6 +5165,8 @@ export interface SandboxFileDeleteResult {
 export interface SandboxFileListInput {
   "sandbox_id": string;
   "path": string;
+  "cursor"?: string;
+  "limit"?: number;
 }
 export interface SandboxFileListResult {
   "items": Array<FileEntry>;
@@ -5050,10 +5176,49 @@ export interface SandboxFileListResult {
 export interface SandboxFileReadInput {
   "sandbox_id": string;
   "path": string;
-  readonly "offset_bytes": number;
-  readonly "length_bytes": number;
+  "offset_bytes"?: number;
+  "length_bytes"?: number;
 }
 export type SandboxFileReadResult = FileReadResult;
+export interface SandboxFileRenameCompletion {
+}
+export interface SandboxFileRenameInput {
+  "sandbox_id": string;
+  "path": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+  "destination": string;
+}
+export interface SandboxFileRenameResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxFileRenameCompletion;
+}
+export interface SandboxFileSearchInput {
+  "sandbox_id": string;
+  "path": string;
+  "query": string;
+  "contents"?: boolean;
+}
+export interface SandboxFileSearchResult {
+  "items": Array<FileEntry>;
+  "next_cursor"?: string;
+  "request_id": string;
+  "truncated"?: boolean;
+}
+export interface SandboxFileStatInput {
+  "sandbox_id": string;
+  "path": string;
+}
+export interface SandboxFileStatResult {
+  "items": Array<FileEntry>;
+  "next_cursor"?: string;
+  "request_id": string;
+}
 export interface SandboxFileTransferCompletion {
   "blob_id"?: string;
 }
@@ -5073,6 +5238,17 @@ export interface SandboxFileTransferResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SandboxFileTransferCompletion;
+}
+export interface SandboxFileWatchInput {
+  "sandbox_id": string;
+  "path": string;
+  "cursor"?: string;
+  "wait_ms"?: number;
+}
+export interface SandboxFileWatchResult {
+  "items": Array<FileEntry>;
+  "next_cursor"?: string;
+  "request_id": string;
 }
 export interface SandboxFileWriteCompletion {
 }
@@ -5125,14 +5301,65 @@ export interface SandboxGetResult {
   "data": Sandbox;
   "request_id": string;
 }
+export type SandboxKitCompletion = AdapterDocument;
+export interface SandboxKitInput {
+  "sandbox_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  "kit": "browser" | "desktop" | "docker" | "python" | "node" | "go" | "rust" | "c" | "lsp";
+}
+export interface SandboxKitResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxKitCompletion;
+}
 export interface SandboxListInput {
   "cursor"?: string;
   readonly "limit"?: number;
   readonly "wait_ms"?: number;
+  "include_deleted"?: boolean;
 }
 export interface SandboxListResult {
   "items": Array<Sandbox>;
   "next_cursor"?: string;
+  "request_id": string;
+}
+export interface SandboxLogsInput {
+  "sandbox_id": string;
+  "limit"?: number;
+}
+export interface SandboxLogsResult {
+  "items": Array<Record<string, unknown>>;
+  "request_id": string;
+}
+export type SandboxLspCompletion = AdapterDocument;
+export interface SandboxLspInput {
+  "sandbox_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  "action": "start" | "open" | "symbols" | "completions" | "diagnostics" | "close" | "stop";
+  "path"?: string;
+  "text"?: string;
+  "line"?: number;
+  "character"?: number;
+}
+export interface SandboxLspResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxLspCompletion;
+}
+export interface SandboxMetricsInput {
+  "sandbox_id": string;
+  "limit"?: number;
+}
+export interface SandboxMetricsResult {
+  "items": Array<Record<string, unknown>>;
   "request_id": string;
 }
 export interface SandboxPrepareForkCompletion {
@@ -5195,6 +5422,23 @@ export interface SandboxResumeResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SandboxResumeCompletion;
+}
+export type SandboxRunCodeCompletion = AdapterDocument;
+export interface SandboxRunCodeInput {
+  "sandbox_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  "code": string;
+  "lang"?: "python";
+  "context"?: string;
+}
+export interface SandboxRunCodeResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SandboxRunCodeCompletion;
 }
 export interface SandboxSaveTemplateCompletion {
 }
@@ -5299,6 +5543,8 @@ export interface Schedule {
   "overlap_policy"?: string;
   "next_run_at"?: string;
   "enabled"?: boolean;
+  readonly "last_run_at"?: string;
+  readonly "last_run_status"?: string;
 }
 export interface ScheduleCreateCompletion {
   "schedule_id": string;
@@ -5438,13 +5684,48 @@ export interface ScheduleUpdateResult {
   "result"?: ScheduleUpdateCompletion;
 }
 export interface Scope {
-  "actions"?: Array<"access_route.create" | "access_route.delete" | "access_route.get" | "access_route.list" | "access_route.update" | "adapter.get" | "adapter.list" | "api.describe" | "approval.approve" | "approval.create" | "approval.delete" | "approval.deny" | "approval.get" | "approval.list" | "approval.revoke" | "artifact.create" | "artifact.delete" | "artifact.download" | "artifact.finalize" | "artifact.get" | "artifact.list" | "artifact.update" | "attachment.create" | "attachment.delete" | "attachment.get" | "attachment.list" | "attachment.update" | "audit_record.export" | "audit_record.get" | "audit_record.list" | "auth_flow.bootstrap" | "auth_flow.complete" | "auth_flow.create" | "auth_flow.delete" | "auth_flow.exchange" | "auth_flow.get" | "auth_flow.list" | "backup.create" | "backup.delete" | "backup.export" | "backup.get" | "backup.list" | "backup.restore" | "blob.create" | "blob.delete" | "blob.download" | "blob.finalize" | "blob.get" | "blob.list" | "blob.upload" | "browser.action" | "browser.create" | "browser.delete" | "browser.fill_password" | "browser.get" | "browser.list" | "browser.return_control" | "browser.takeover" | "browser.update" | "budget.create" | "budget.delete" | "budget.get" | "budget.list" | "budget.update" | "cache.create" | "cache.delete" | "cache.evict" | "cache.get" | "cache.list" | "cache.publish" | "cache.update" | "change_set.apply" | "change_set.create" | "change_set.delete" | "change_set.get" | "change_set.list" | "change_set.reject" | "configuration.create" | "configuration.delete" | "configuration.get" | "configuration.list" | "connection.create" | "connection.delete" | "connection.get" | "connection.invoke" | "connection.list" | "connection.revoke" | "connection.test" | "connection.update" | "credential_source.create" | "credential_source.delete" | "credential_source.get" | "credential_source.list" | "credential_source.update" | "docs.read" | "engine.get" | "engine.list" | "event.list" | "exec.create" | "exec.delete" | "exec.get" | "exec.input" | "exec.interrupt" | "exec.list" | "exec.resize" | "exec.watch" | "exposure.activate" | "exposure.create" | "exposure.delete" | "exposure.get" | "exposure.list" | "exposure.revoke" | "fleet.get" | "fleet.list" | "fleet.recover" | "fleet.transfer_owner" | "fleet.update" | "grant.delete" | "grant.get" | "grant.list" | "grant.revoke" | "harness.get" | "harness.list" | "host.bench" | "host.create" | "host.delete" | "host.drain" | "host.enroll" | "host.get" | "host.list" | "host.update" | "identity_provider.create" | "identity_provider.delete" | "identity_provider.get" | "identity_provider.list" | "identity_provider.update" | "invitation.accept" | "invitation.create" | "invitation.delete" | "invitation.get" | "invitation.list" | "job.cancel" | "job.create" | "job.delete" | "job.get" | "job.list" | "job.reconcile" | "key.create" | "key.delete" | "key.get" | "key.list" | "key.rotate" | "kit.create" | "kit.delete" | "kit.get" | "kit.install" | "kit.install_status" | "kit.list" | "kit.update" | "lease.create" | "lease.delete" | "lease.get" | "lease.list" | "lease.release" | "lease.renew" | "membership.create" | "membership.delete" | "membership.get" | "membership.list" | "membership.update" | "message.create" | "message.get" | "message.list" | "metric.list" | "native_execution_grant.create" | "native_execution_grant.delete" | "native_execution_grant.get" | "native_execution_grant.list" | "network_attachment.create" | "network_attachment.delete" | "network_attachment.get" | "network_attachment.list" | "network_attachment.test" | "network_attachment.update" | "network_policy.create" | "network_policy.delete" | "network_policy.get" | "network_policy.list" | "network_policy.update" | "notification.acknowledge" | "notification.get" | "notification.list" | "notification.retry" | "notification_sink.create" | "notification_sink.delete" | "notification_sink.get" | "notification_sink.list" | "notification_sink.test" | "notification_sink.update" | "operation.cancel" | "operation.get" | "operation.list" | "operation.wait" | "plugin.create" | "plugin.delete" | "plugin.disable" | "plugin.enable" | "plugin.get" | "plugin.list" | "plugin.test" | "plugin.trust" | "plugin.update" | "port.create" | "port.delete" | "port.get" | "port.list" | "port.publish" | "port.share_link" | "port.unpublish" | "port.update" | "principal.create" | "principal.delete" | "principal.get" | "principal.list" | "principal.update" | "recipe.create" | "recipe.delete" | "recipe.get" | "recipe.list" | "recipe.update" | "sandbox.create" | "sandbox.delete" | "sandbox.device_input" | "sandbox.device_watch" | "sandbox.file_delete" | "sandbox.file_list" | "sandbox.file_read" | "sandbox.file_transfer" | "sandbox.file_write" | "sandbox.fork" | "sandbox.get" | "sandbox.list" | "sandbox.prepare_fork" | "sandbox.restore" | "sandbox.resume" | "sandbox.save_template" | "sandbox.suspend" | "sandbox.update" | "schedule.create" | "schedule.delete" | "schedule.get" | "schedule.list" | "schedule.pause" | "schedule.resume" | "schedule.run" | "schedule.update" | "session.attach" | "session.checkpoint" | "session.create" | "session.delete" | "session.end" | "session.get" | "session.input" | "session.interrupt" | "session.list" | "session.resize" | "session.spawn" | "session.teleport" | "session.update" | "session.watch" | "settings_change.apply" | "settings_change.create" | "settings_change.delete" | "settings_change.get" | "settings_change.list" | "settings_change.reject" | "settings_source.create" | "settings_source.delete" | "settings_source.get" | "settings_source.list" | "settings_source.update" | "share.create" | "share.delete" | "share.get" | "share.list" | "share.revoke" | "share.update" | "snapshot.create" | "snapshot.delete" | "snapshot.get" | "snapshot.list" | "task.create" | "task.delete" | "task.get" | "task.list" | "task.stop" | "task.update" | "telemetry.get" | "telemetry.purge" | "telemetry.update" | "template.build" | "template.create" | "template.delete" | "template.get" | "template.list" | "template.update" | "template.validate" | "trigger.create" | "trigger.delete" | "trigger.deliver" | "trigger.get" | "trigger.list" | "trigger.update" | "update.create" | "update.delete" | "update.get" | "update.list" | "update.rollback" | "volume.create" | "volume.delete" | "volume.get" | "volume.list" | "volume.recover" | "volume.snapshot" | "volume.update" | "warm_pool.create" | "warm_pool.delete" | "warm_pool.get" | "warm_pool.list" | "warm_pool.update">;
+  "actions"?: Array<"access_route.create" | "access_route.delete" | "access_route.get" | "access_route.list" | "access_route.update" | "adapter.get" | "adapter.list" | "api.describe" | "approval.approve" | "approval.create" | "approval.delete" | "approval.deny" | "approval.get" | "approval.list" | "approval.revoke" | "artifact.create" | "artifact.delete" | "artifact.download" | "artifact.finalize" | "artifact.get" | "artifact.list" | "artifact.update" | "attachment.create" | "attachment.delete" | "attachment.get" | "attachment.list" | "attachment.update" | "audit_record.export" | "audit_record.get" | "audit_record.list" | "auth_flow.bootstrap" | "auth_flow.complete" | "auth_flow.create" | "auth_flow.delete" | "auth_flow.exchange" | "auth_flow.get" | "auth_flow.list" | "backup.create" | "backup.delete" | "backup.export" | "backup.get" | "backup.list" | "backup.restore" | "blob.create" | "blob.delete" | "blob.download" | "blob.finalize" | "blob.get" | "blob.list" | "blob.upload" | "browser.action" | "browser.create" | "browser.delete" | "browser.fill_password" | "browser.get" | "browser.list" | "browser.return_control" | "browser.takeover" | "browser.update" | "budget.create" | "budget.delete" | "budget.get" | "budget.list" | "budget.update" | "cache.create" | "cache.delete" | "cache.evict" | "cache.get" | "cache.list" | "cache.publish" | "cache.update" | "change_set.apply" | "change_set.create" | "change_set.delete" | "change_set.get" | "change_set.list" | "change_set.reject" | "configuration.create" | "configuration.delete" | "configuration.get" | "configuration.list" | "connection.create" | "connection.delete" | "connection.get" | "connection.invoke" | "connection.list" | "connection.revoke" | "connection.test" | "connection.update" | "credential_source.create" | "credential_source.delete" | "credential_source.get" | "credential_source.list" | "credential_source.update" | "docs.read" | "engine.get" | "engine.list" | "event.list" | "exec.create" | "exec.delete" | "exec.get" | "exec.input" | "exec.interrupt" | "exec.list" | "exec.resize" | "exec.watch" | "exposure.activate" | "exposure.create" | "exposure.delete" | "exposure.get" | "exposure.list" | "exposure.revoke" | "fleet.get" | "fleet.list" | "fleet.recover" | "fleet.transfer_owner" | "fleet.update" | "grant.delete" | "grant.get" | "grant.list" | "grant.revoke" | "harness.get" | "harness.list" | "host.bench" | "host.create" | "host.delete" | "host.drain" | "host.enroll" | "host.get" | "host.list" | "host.update" | "identity_provider.create" | "identity_provider.delete" | "identity_provider.get" | "identity_provider.list" | "identity_provider.update" | "invitation.accept" | "invitation.create" | "invitation.delete" | "invitation.get" | "invitation.list" | "job.cancel" | "job.create" | "job.delete" | "job.get" | "job.list" | "job.reconcile" | "key.create" | "key.delete" | "key.get" | "key.list" | "key.rotate" | "kit.create" | "kit.delete" | "kit.get" | "kit.install" | "kit.install_status" | "kit.list" | "kit.update" | "lease.create" | "lease.delete" | "lease.get" | "lease.list" | "lease.release" | "lease.renew" | "membership.create" | "membership.delete" | "membership.get" | "membership.list" | "membership.update" | "message.create" | "message.get" | "message.list" | "metric.list" | "native_execution_grant.create" | "native_execution_grant.delete" | "native_execution_grant.get" | "native_execution_grant.list" | "network_attachment.create" | "network_attachment.delete" | "network_attachment.get" | "network_attachment.list" | "network_attachment.test" | "network_attachment.update" | "network_policy.create" | "network_policy.delete" | "network_policy.get" | "network_policy.list" | "network_policy.update" | "notification.acknowledge" | "notification.get" | "notification.list" | "notification.retry" | "notification_sink.create" | "notification_sink.delete" | "notification_sink.get" | "notification_sink.list" | "notification_sink.test" | "notification_sink.update" | "operation.cancel" | "operation.get" | "operation.list" | "operation.wait" | "plugin.create" | "plugin.delete" | "plugin.disable" | "plugin.enable" | "plugin.get" | "plugin.list" | "plugin.test" | "plugin.trust" | "plugin.update" | "port.create" | "port.delete" | "port.get" | "port.list" | "port.publish" | "port.share_link" | "port.unpublish" | "port.update" | "principal.create" | "principal.delete" | "principal.get" | "principal.list" | "principal.update" | "recipe.create" | "recipe.delete" | "recipe.get" | "recipe.list" | "recipe.update" | "sandbox.create" | "sandbox.delete" | "sandbox.device_input" | "sandbox.device_watch" | "sandbox.file_delete" | "sandbox.file_list" | "sandbox.file_read" | "sandbox.file_transfer" | "sandbox.file_write" | "sandbox.fork" | "sandbox.get" | "sandbox.list" | "sandbox.prepare_fork" | "sandbox.restore" | "sandbox.resume" | "sandbox.save_template" | "sandbox.suspend" | "sandbox.update" | "schedule.create" | "schedule.delete" | "schedule.get" | "schedule.list" | "schedule.pause" | "schedule.resume" | "schedule.run" | "schedule.update" | "session.attach" | "session.checkpoint" | "session.create" | "session.delete" | "session.end" | "session.get" | "session.input" | "session.interrupt" | "session.list" | "session.resize" | "session.spawn" | "session.teleport" | "session.update" | "session.watch" | "settings_change.apply" | "settings_change.create" | "settings_change.delete" | "settings_change.get" | "settings_change.list" | "settings_change.reject" | "settings_source.create" | "settings_source.delete" | "settings_source.get" | "settings_source.list" | "settings_source.update" | "share.create" | "share.delete" | "share.get" | "share.list" | "share.revoke" | "share.update" | "snapshot.create" | "snapshot.delete" | "snapshot.get" | "snapshot.list" | "task.create" | "task.delete" | "task.get" | "task.list" | "task.stop" | "task.update" | "telemetry.get" | "telemetry.purge" | "telemetry.update" | "template.build" | "template.create" | "template.delete" | "template.get" | "template.list" | "template.update" | "template.validate" | "trigger.create" | "trigger.delete" | "trigger.deliver" | "trigger.get" | "trigger.list" | "trigger.update" | "update.create" | "update.delete" | "update.get" | "update.list" | "update.rollback" | "volume.create" | "volume.delete" | "volume.get" | "volume.list" | "volume.recover" | "volume.snapshot" | "volume.update" | "warm_pool.create" | "warm_pool.delete" | "warm_pool.get" | "warm_pool.list" | "warm_pool.update" | "sandbox.file_stat" | "sandbox.file_search" | "sandbox.file_watch" | "sandbox.file_rename" | "sandbox.kit" | "sandbox.run_code" | "sandbox.lsp" | "sandbox.browser" | "sandbox.desktop" | "sandbox.metrics" | "sandbox.logs" | "session.message" | "session.cancel">;
   "sandbox_ids"?: Array<string>;
   "recipe_ids"?: Array<string>;
   "host_ids"?: Array<string>;
   "resource_ids"?: Array<ResourceRef>;
   "limits"?: Limits;
   "expires_at"?: string;
+}
+export interface SecretRequestCompletion {
+  "entry_url": string;
+}
+export interface SecretRequestInput {
+  "name": string;
+  "hosts": Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+}
+export interface SecretRequestResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SecretRequestCompletion;
+}
+export interface SecretSetCompletion {
+  "name": string;
+}
+export interface SecretSetInput {
+  "name": string;
+  "value": string;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+  "hosts"?: Array<string>;
+}
+export interface SecretSetResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SecretSetCompletion;
 }
 export interface SecurityRevocation {
   "digest"?: string;
@@ -5477,6 +5758,11 @@ export interface Session {
   readonly "location_epoch"?: number;
   readonly "output_cursor"?: string;
   readonly "continuation_ref"?: string;
+  "repository"?: string;
+  "shared_session_id"?: string;
+  "shared_epoch"?: number;
+  "last_turn"?: "completed" | "failed" | "interrupted";
+  "transfer"?: { "phase": string; "bytes_transferred": number; "artifact_bytes": number; "safe_to_close_source": boolean };
 }
 export interface SessionAttachCompletion {
   "stream": StreamDescriptor;
@@ -5496,6 +5782,22 @@ export interface SessionAttachResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SessionAttachCompletion;
+}
+export interface SessionCancelCompletion {
+}
+export interface SessionCancelInput {
+  "session_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+}
+export interface SessionCancelResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SessionEndCompletion;
 }
 export interface SessionCheckpointCompletion {
 }
@@ -5533,6 +5835,8 @@ export interface SessionCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "prompt"?: string;
+  "repository"?: string;
 }
 export interface SessionCreateResult {
   "operation_id": string;
@@ -5629,6 +5933,23 @@ export interface SessionListResult {
   "next_cursor"?: string;
   "request_id": string;
 }
+export interface SessionMessageCompletion {
+}
+export interface SessionMessageInput {
+  "session_id": string;
+  "idempotency_key": string;
+  readonly "wait_ms"?: number;
+  readonly "expected_revision": number;
+  "text": string;
+}
+export interface SessionMessageResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SessionEndCompletion;
+}
 export interface SessionResizeCompletion {
 }
 export interface SessionResizeInput {
@@ -5661,6 +5982,9 @@ export interface SessionSpawnInput {
   "idempotency_key": string;
   readonly "wait_ms"?: number;
   readonly "expected_revision": number;
+  "harness_id"?: string;
+  "prompt"?: string;
+  "side"?: boolean;
 }
 export interface SessionSpawnResult {
   "operation_id": string;
@@ -5669,6 +5993,14 @@ export interface SessionSpawnResult {
   "replayed": boolean;
   "operation"?: Operation;
   "result"?: SessionSpawnCompletion;
+}
+export interface SessionTeleportCheckInput {
+  "session_id": string;
+  "location": Location;
+}
+export interface SessionTeleportCheckResult {
+  "data": Session;
+  "request_id": string;
 }
 export interface SessionTeleportCompletion {
 }
@@ -5857,6 +6189,26 @@ export interface SettingsSource {
   "categories"?: Array<string>;
   "content_digest"?: string;
   "signing_connection_id"?: string;
+}
+export interface SettingsSourceApplyCompletion {
+  "settings_source_id": string;
+}
+export interface SettingsSourceApplyInput {
+  "settings_source_id": string;
+  "session_id": string;
+  "settings_change_id": string;
+  "base_revision": string;
+  "selected_paths": Array<string>;
+  "idempotency_key": string;
+  "wait_ms"?: number;
+}
+export interface SettingsSourceApplyResult {
+  "operation_id": string;
+  "resource_ids": Array<ResourceRef>;
+  "request_id": string;
+  "replayed": boolean;
+  "operation"?: Operation;
+  "result"?: SettingsSourceApplyCompletion;
 }
 export interface SettingsSourceCreateCompletion {
   "settings_source_id": string;
@@ -6678,6 +7030,7 @@ export interface UpdateCreateInput {
   "visibility"?: "private" | "shared";
   "idempotency_key": string;
   readonly "wait_ms"?: number;
+  "version"?: string;
 }
 export interface UpdateCreateResult {
   "operation_id": string;
@@ -6742,6 +7095,9 @@ export interface UpdateRollbackResult {
   "operation"?: Operation;
   "result"?: UpdateRollbackCompletion;
 }
+export interface VersionGetInput {
+}
+export type VersionGetResult = AdapterDocument;
 export interface Volume {
   readonly "id": string;
   readonly "kind": "volume";
@@ -7206,6 +7562,8 @@ export declare class LampClient {
   credentialSourceGet(input: CredentialSourceGetInput): Promise<CredentialSourceGetResult>;
   /** `lamp credential-source list` — GET /v1/credential-sources (scope credential_source.list) */
   credentialSourceList(input: CredentialSourceListInput): Promise<CredentialSourceListResult>;
+  /** `lamp credential-source revoke` — POST /v1/credential-sources/{credential_source_id}:revoke (scope credential_source.revoke) */
+  credentialSourceRevoke(input: CredentialSourceRevokeInput): Promise<CredentialSourceRevokeResult>;
   /** `lamp credential-source update` — PATCH /v1/credential-sources/{credential_source_id} (scope credential_source.update) */
   credentialSourceUpdate(input: CredentialSourceUpdateInput): Promise<CredentialSourceUpdateResult>;
   /** `lamp docs read` — GET /v1/docs (scope docs.read) */
@@ -7262,6 +7620,8 @@ export declare class LampClient {
   grantList(input: GrantListInput): Promise<GrantListResult>;
   /** `lamp grant revoke` — POST /v1/grants/{grant_id}:revoke (scope grant.revoke) */
   grantRevoke(input: GrantRevokeInput): Promise<GrantRevokeResult>;
+  /** `lamp harness enroll` — POST /v1/harnesses:enroll (scope harness.enroll) */
+  harnessEnroll(input: HarnessEnrollInput): Promise<HarnessEnrollResult>;
   /** `lamp harness get` — GET /v1/harnesses/{harness_id} (scope harness.get) */
   harnessGet(input: HarnessGetInput): Promise<HarnessGetResult>;
   /** `lamp harness list` — GET /v1/harnesses (scope harness.list) */
@@ -7480,10 +7840,18 @@ export declare class LampClient {
   recipeList(input: RecipeListInput): Promise<RecipeListResult>;
   /** `lamp recipe update` — PATCH /v1/recipes/{recipe_id} (scope recipe.update) */
   recipeUpdate(input: RecipeUpdateInput): Promise<RecipeUpdateResult>;
+  /** `lamp relay get` — GET /v1/relays/{relay_id} (scope relay.get) */
+  relayGet(input: RelayGetInput): Promise<RelayGetResult>;
+  /** `lamp relay list` — GET /v1/relays (scope relay.list) */
+  relayList(input: RelayListInput): Promise<RelayListResult>;
+  /** `lamp sandbox browser` — POST /v1/sandboxes/{sandbox_id}:browser (scope sandbox.browser) */
+  sandboxBrowser(input: SandboxBrowserInput): Promise<SandboxBrowserResult>;
   /** `lamp sandbox create` — POST /v1/sandboxes (scope sandbox.create) */
   sandboxCreate(input: SandboxCreateInput): Promise<SandboxCreateResult>;
   /** `lamp sandbox delete` — DELETE /v1/sandboxes/{sandbox_id} (scope sandbox.delete) */
   sandboxDelete(input: SandboxDeleteInput): Promise<SandboxDeleteResult>;
+  /** `lamp sandbox desktop` — POST /v1/sandboxes/{sandbox_id}:desktop (scope sandbox.desktop) */
+  sandboxDesktop(input: SandboxDesktopInput): Promise<SandboxDesktopResult>;
   /** `lamp sandbox device-input` — POST /v1/sandboxes/{sandbox_id}:device-input (scope sandbox.device_input) */
   sandboxDeviceInput(input: SandboxDeviceInputInput): Promise<SandboxDeviceInputResult>;
   /** `lamp sandbox device-watch` — GET /v1/sandboxes/{sandbox_id}/device-stream (scope sandbox.device_watch) */
@@ -7494,22 +7862,40 @@ export declare class LampClient {
   sandboxFileList(input: SandboxFileListInput): Promise<SandboxFileListResult>;
   /** `lamp sandbox file-read` — POST /v1/sandboxes/{sandbox_id}:file-read (scope sandbox.file_read) */
   sandboxFileRead(input: SandboxFileReadInput): Promise<SandboxFileReadResult>;
+  /** `lamp sandbox file-rename` — POST /v1/sandboxes/{sandbox_id}:file-rename (scope sandbox.file_rename) */
+  sandboxFileRename(input: SandboxFileRenameInput): Promise<SandboxFileRenameResult>;
+  /** `lamp sandbox file-search` — POST /v1/sandboxes/{sandbox_id}:file-search (scope sandbox.file_search) */
+  sandboxFileSearch(input: SandboxFileSearchInput): Promise<SandboxFileSearchResult>;
+  /** `lamp sandbox file-stat` — POST /v1/sandboxes/{sandbox_id}:file-stat (scope sandbox.file_stat) */
+  sandboxFileStat(input: SandboxFileStatInput): Promise<SandboxFileStatResult>;
   /** `lamp sandbox file-transfer` — POST /v1/sandboxes/{sandbox_id}:file-transfer (scope sandbox.file_transfer) */
   sandboxFileTransfer(input: SandboxFileTransferInput): Promise<SandboxFileTransferResult>;
+  /** `lamp sandbox file-watch` — POST /v1/sandboxes/{sandbox_id}:file-watch (scope sandbox.file_watch) */
+  sandboxFileWatch(input: SandboxFileWatchInput): Promise<SandboxFileWatchResult>;
   /** `lamp sandbox file-write` — POST /v1/sandboxes/{sandbox_id}:file-write (scope sandbox.file_write) */
   sandboxFileWrite(input: SandboxFileWriteInput): Promise<SandboxFileWriteResult>;
   /** `lamp sandbox fork` — POST /v1/sandboxes/{sandbox_id}:fork (scope sandbox.fork) */
   sandboxFork(input: SandboxForkInput): Promise<SandboxForkResult>;
   /** `lamp sandbox get` — GET /v1/sandboxes/{sandbox_id} (scope sandbox.get) */
   sandboxGet(input: SandboxGetInput): Promise<SandboxGetResult>;
+  /** `lamp sandbox kit` — POST /v1/sandboxes/{sandbox_id}:kit (scope sandbox.kit) */
+  sandboxKit(input: SandboxKitInput): Promise<SandboxKitResult>;
   /** `lamp sandbox list` — GET /v1/sandboxes (scope sandbox.list) */
   sandboxList(input: SandboxListInput): Promise<SandboxListResult>;
+  /** `lamp sandbox logs` — GET /v1/sandboxes/{sandbox_id}/logs (scope sandbox.logs) */
+  sandboxLogs(input: SandboxLogsInput): Promise<SandboxLogsResult>;
+  /** `lamp sandbox lsp` — POST /v1/sandboxes/{sandbox_id}:lsp (scope sandbox.lsp) */
+  sandboxLsp(input: SandboxLspInput): Promise<SandboxLspResult>;
+  /** `lamp sandbox metrics` — GET /v1/sandboxes/{sandbox_id}/metrics (scope sandbox.metrics) */
+  sandboxMetrics(input: SandboxMetricsInput): Promise<SandboxMetricsResult>;
   /** `lamp sandbox prepare-fork` — POST /v1/sandboxes/{sandbox_id}:prepare-fork (scope sandbox.prepare_fork) */
   sandboxPrepareFork(input: SandboxPrepareForkInput): Promise<SandboxPrepareForkResult>;
   /** `lamp sandbox restore` — POST /v1/sandboxes/{sandbox_id}:restore (scope sandbox.restore) */
   sandboxRestore(input: SandboxRestoreInput): Promise<SandboxRestoreResult>;
   /** `lamp sandbox resume` — POST /v1/sandboxes/{sandbox_id}:resume (scope sandbox.resume) */
   sandboxResume(input: SandboxResumeInput): Promise<SandboxResumeResult>;
+  /** `lamp sandbox run-code` — POST /v1/sandboxes/{sandbox_id}:run-code (scope sandbox.run_code) */
+  sandboxRunCode(input: SandboxRunCodeInput): Promise<SandboxRunCodeResult>;
   /** `lamp sandbox save-template` — POST /v1/sandboxes/{sandbox_id}:save-template (scope sandbox.save_template) */
   sandboxSaveTemplate(input: SandboxSaveTemplateInput): Promise<SandboxSaveTemplateResult>;
   /** `lamp sandbox suspend` — POST /v1/sandboxes/{sandbox_id}:suspend (scope sandbox.suspend) */
@@ -7532,8 +7918,14 @@ export declare class LampClient {
   scheduleRun(input: ScheduleRunInput): Promise<ScheduleRunResult>;
   /** `lamp schedule update` — PATCH /v1/schedules/{schedule_id} (scope schedule.update) */
   scheduleUpdate(input: ScheduleUpdateInput): Promise<ScheduleUpdateResult>;
+  /** `lamp secret request` — POST /v1/secrets:request (scope secret.request) */
+  secretRequest(input: SecretRequestInput): Promise<SecretRequestResult>;
+  /** `lamp secret set` — POST /v1/secrets:set (scope secret.set) */
+  secretSet(input: SecretSetInput): Promise<SecretSetResult>;
   /** `lamp session attach` — POST /v1/sessions/{session_id}:attach (scope session.attach) */
   sessionAttach(input: SessionAttachInput): Promise<SessionAttachResult>;
+  /** `lamp session cancel` — POST /v1/sessions/{session_id}:cancel (scope session.cancel) */
+  sessionCancel(input: SessionCancelInput): Promise<SessionCancelResult>;
   /** `lamp session checkpoint` — POST /v1/sessions/{session_id}:checkpoint (scope session.checkpoint) */
   sessionCheckpoint(input: SessionCheckpointInput): Promise<SessionCheckpointResult>;
   /** `lamp session create` — POST /v1/sessions (scope session.create) */
@@ -7550,12 +7942,16 @@ export declare class LampClient {
   sessionInterrupt(input: SessionInterruptInput): Promise<SessionInterruptResult>;
   /** `lamp session list` — GET /v1/sessions (scope session.list) */
   sessionList(input: SessionListInput): Promise<SessionListResult>;
+  /** `lamp session message` — POST /v1/sessions/{session_id}:message (scope session.message) */
+  sessionMessage(input: SessionMessageInput): Promise<SessionMessageResult>;
   /** `lamp session resize` — POST /v1/sessions/{session_id}:resize (scope session.resize) */
   sessionResize(input: SessionResizeInput): Promise<SessionResizeResult>;
   /** `lamp session spawn` — POST /v1/sessions/{session_id}:spawn (scope session.spawn) */
   sessionSpawn(input: SessionSpawnInput): Promise<SessionSpawnResult>;
   /** `lamp session teleport` — POST /v1/sessions/{session_id}:teleport (scope session.teleport) */
   sessionTeleport(input: SessionTeleportInput): Promise<SessionTeleportResult>;
+  /** `lamp session teleport-check` — GET /v1/sessions/{session_id}/teleport-check (scope session.teleport) */
+  sessionTeleportCheck(input: SessionTeleportCheckInput): Promise<SessionTeleportCheckResult>;
   /** `lamp session update` — PATCH /v1/sessions/{session_id} (scope session.update) */
   sessionUpdate(input: SessionUpdateInput): Promise<SessionUpdateResult>;
   /** `lamp session watch` — GET /v1/sessions/{session_id}/output (scope session.watch) */
@@ -7572,6 +7968,8 @@ export declare class LampClient {
   settingsChangeList(input: SettingsChangeListInput): Promise<SettingsChangeListResult>;
   /** `lamp settings-change reject` — POST /v1/settings-changes/{settings_change_id}:reject (scope settings_change.reject) */
   settingsChangeReject(input: SettingsChangeRejectInput): Promise<SettingsChangeRejectResult>;
+  /** `lamp settings-source apply` — POST /v1/settings-sources/{settings_source_id}:apply (scope settings_source.apply) */
+  settingsSourceApply(input: SettingsSourceApplyInput): Promise<SettingsSourceApplyResult>;
   /** `lamp settings-source create` — POST /v1/settings-sources (scope settings_source.create) */
   settingsSourceCreate(input: SettingsSourceCreateInput): Promise<SettingsSourceCreateResult>;
   /** `lamp settings-source delete` — DELETE /v1/settings-sources/{settings_source_id} (scope settings_source.delete) */
@@ -7656,6 +8054,8 @@ export declare class LampClient {
   updateList(input: UpdateListInput): Promise<UpdateListResult>;
   /** `lamp update rollback` — POST /v1/updates/{update_id}:rollback (scope update.rollback) */
   updateRollback(input: UpdateRollbackInput): Promise<UpdateRollbackResult>;
+  /** `lamp version` — GET /v1/version (scope api.describe) */
+  versionGet(input: VersionGetInput): Promise<VersionGetResult>;
   /** `lamp volume create` — POST /v1/volumes (scope volume.create) */
   volumeCreate(input: VolumeCreateInput): Promise<VolumeCreateResult>;
   /** `lamp volume delete` — DELETE /v1/volumes/{volume_id} (scope volume.delete) */

@@ -39,6 +39,7 @@ mod linux {
     struct Table {
         by_key: std::collections::HashMap<String, Option<ExecDone>>,
         order: std::collections::VecDeque<String>,
+        io: std::collections::HashMap<String, Arc<command_io::CommandIo>>,
     }
 
     type Results = Arc<(Mutex<Table>, std::sync::Condvar)>;
@@ -128,9 +129,50 @@ mod linux {
                     return;
                 }
             };
+            if let GuestRequest::Mount(m) = &request {
+                let id = state.lock().unwrap();
+                if id.sandbox_id != m.sandbox_id || id.generation != m.generation {
+                    let _ = write_frame(
+                        &mut stream,
+                        &error("SCOPE_DENIED", "mount identity mismatch"),
+                    );
+                    return;
+                }
+                drop(id);
+                let result = mount_storage(&stream, m);
+                if m.unmount {
+                    let response = match result {
+                        Ok(()) => GuestResponse::StorageUnmounted,
+                        Err(e) => error("DATA_UNAVAILABLE", &e.to_string()),
+                    };
+                    let _ = write_frame(&mut stream, &response);
+                } else if let Err(e) = result {
+                    eprintln!("lamp-guest-helper: mount: {e}");
+                }
+                return;
+            }
             let response = match request {
                 GuestRequest::Exec(x) => exec(&x, &state, &results),
                 GuestRequest::Wait(w) => wait(&w, &state, &results),
+                GuestRequest::ExecIo(x) => {
+                    if let Err(e) = admit(&x.sandbox_id, x.generation, &state) {
+                        *e
+                    } else {
+                        let io = results
+                            .0
+                            .lock()
+                            .unwrap()
+                            .io
+                            .get(&key(&x.sandbox_id, x.generation, &x.exec_id))
+                            .cloned();
+                        match io {
+                            Some(io) => io
+                                .serve(&x)
+                                .unwrap_or_else(|e| error("INVALID_ARGUMENT", &e.to_string())),
+                            None => error("NOT_FOUND", "command I/O not retained"),
+                        }
+                    }
+                }
                 other => handle(other, &state),
             };
             let stop = matches!(response, GuestResponse::ShuttingDown);
@@ -143,6 +185,51 @@ mod linux {
         }
     }
 
+    fn mount_storage(stream: &File, m: &lamp_init::Mount) -> io::Result<()> {
+        use std::ffi::CString;
+        use std::os::fd::AsRawFd;
+        let path = std::path::Path::new(&m.path);
+        if !path.is_absolute()
+            || m.path == "/"
+            || path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid mount path",
+            ));
+        }
+        let target = CString::new(m.path.clone())?;
+        if m.unmount {
+            // Lazy detach also clears an inherited or disconnected mount.
+            if unsafe { libc::umount2(target.as_ptr(), libc::MNT_DETACH) } < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            return Ok(());
+        }
+        std::fs::create_dir_all(path)?;
+        let fd = stream.as_raw_fd();
+        let options = CString::new(format!(
+            "trans=fd,rfdno={fd},wfdno={fd},version=9p2000.L,msize=262144,cache=none,access=any"
+        ))?;
+        let flags =
+            libc::MS_NODEV | libc::MS_NOSUID | if m.read_only { libc::MS_RDONLY } else { 0 };
+        if unsafe {
+            libc::mount(
+                c"lamp-storage".as_ptr(),
+                target.as_ptr(),
+                c"9p".as_ptr(),
+                flags,
+                options.as_ptr().cast(),
+            )
+        } < 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
+
     fn error(code: &str, message: &str) -> GuestResponse {
         GuestResponse::Error {
             code: code.into(),
@@ -150,11 +237,72 @@ mod linux {
         }
     }
 
+    // Read kernel counters directly: collecting telemetry never starts a task.
+    fn guest_metrics() -> std::collections::BTreeMap<String, u64> {
+        let mut out = std::collections::BTreeMap::new();
+        if let Ok(cpu) = std::fs::read_to_string("/sys/fs/cgroup/tasks/cpu.stat") {
+            for line in cpu.lines() {
+                if let Some(value) = line
+                    .strip_prefix("usage_usec ")
+                    .and_then(|v| v.parse::<u64>().ok())
+                {
+                    out.insert("cpu_usage_usec".into(), value);
+                }
+            }
+        }
+        if let Ok(mem) = std::fs::read_to_string("/proc/meminfo") {
+            let field = |name: &str| {
+                mem.lines().find_map(|l| {
+                    l.strip_prefix(name)
+                        .and_then(|v| v.split_whitespace().next())
+                        .and_then(|v| v.parse::<u64>().ok())
+                })
+            };
+            if let (Some(total), Some(available)) = (field("MemTotal:"), field("MemAvailable:")) {
+                out.insert(
+                    "memory_used_bytes".into(),
+                    total.saturating_sub(available) * 1024,
+                );
+                out.insert("memory_total_bytes".into(), total * 1024);
+            }
+        }
+        let mut disk: libc::statvfs = unsafe { std::mem::zeroed() };
+        if unsafe { libc::statvfs(c"/".as_ptr(), &mut disk) } == 0 {
+            out.insert(
+                "disk_used_bytes".into(),
+                (disk.f_blocks - disk.f_bfree) * disk.f_frsize,
+            );
+            out.insert("disk_total_bytes".into(), disk.f_blocks * disk.f_frsize);
+        }
+        if let Ok(net) = std::fs::read_to_string("/proc/net/dev") {
+            let (mut rx, mut tx) = (0, 0);
+            for line in net.lines() {
+                if let Some((name, values)) = line.split_once(':') {
+                    if name.trim() == "lo" {
+                        continue;
+                    }
+                    let values: Vec<u64> = values
+                        .split_whitespace()
+                        .filter_map(|v| v.parse().ok())
+                        .collect();
+                    if values.len() >= 9 {
+                        rx += values[0];
+                        tx += values[8];
+                    }
+                }
+            }
+            out.insert("network_rx_bytes".into(), rx);
+            out.insert("network_tx_bytes".into(), tx);
+        }
+        out
+    }
+
     fn handle(request: GuestRequest, state: &Shared) -> GuestResponse {
         match request {
             GuestRequest::Ping(Empty {}) => {
                 let id = state.lock().unwrap();
                 GuestResponse::Pong(Status {
+                    metrics: guest_metrics(),
                     sandbox_id: id.sandbox_id.clone(),
                     generation: id.generation,
                     kernel_boot_id: boot_id(),
@@ -166,9 +314,10 @@ mod linux {
             },
             GuestRequest::SessionCall(call) => session_call(&call, state),
             // Served by `serve`, which owns the result table.
-            GuestRequest::Exec(_) | GuestRequest::Wait(_) => {
-                error("INVALID_ARGUMENT", "served with results")
-            }
+            GuestRequest::Exec(_)
+            | GuestRequest::Wait(_)
+            | GuestRequest::ExecIo(_)
+            | GuestRequest::Mount(_) => error("INVALID_ARGUMENT", "served with results"),
             GuestRequest::Freeze(Empty {}) => match freeze() {
                 Ok(()) => GuestResponse::Frozen,
                 Err(e) => error("FREEZE_FAILED", &e.to_string()),
@@ -224,6 +373,9 @@ mod linux {
                         cwd: "/".into(),
                         timeout_ms: 0,
                         output_limit: DEFAULT_OUTPUT_LIMIT,
+                        stdin_path: String::new(),
+                        pty: false,
+                        stdin_open: false,
                         audit: call.audit.clone(),
                     })?;
                     std::thread::spawn(move || {
@@ -292,6 +444,7 @@ mod linux {
                 };
                 let old = t.order.remove(pos).unwrap();
                 t.by_key.remove(&old);
+                t.io.remove(&old);
             }
         }
         let running = match start(x) {
@@ -304,6 +457,12 @@ mod linux {
             }
         };
         let started = running.started.clone();
+        results
+            .0
+            .lock()
+            .unwrap()
+            .io
+            .insert(k.clone(), running.io.clone());
         let results = results.clone();
         std::thread::spawn(move || {
             let done = finish(running).unwrap_or_else(|e| ExecDone {
@@ -332,6 +491,12 @@ mod linux {
         loop {
             match t.by_key.get(&k) {
                 None => return error("NOT_FOUND", "no command with this exec_id"),
+                Some(Some(done)) if done.exit_code == -1 && done.signal == 0 => {
+                    return error(
+                        "DATA_UNAVAILABLE",
+                        "guest exec collector lost command status",
+                    );
+                }
                 Some(Some(done)) => return GuestResponse::ExecDone(done.clone()),
                 Some(None) => {}
             }
@@ -634,38 +799,13 @@ mod linux {
         Ok(())
     }
 
-    fn capped_reader(
-        mut source: impl Read + Send + 'static,
-        limit: usize,
-    ) -> mpsc::Receiver<(Vec<u8>, bool)> {
-        let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let mut kept = Vec::new();
-            let mut truncated = false;
-            let mut buf = [0_u8; 16384];
-            loop {
-                match source.read(&mut buf) {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        let room = limit.saturating_sub(kept.len());
-                        if n > room {
-                            truncated = true;
-                        }
-                        kept.extend_from_slice(&buf[..n.min(room)]);
-                    }
-                }
-            }
-            let _ = tx.send((kept, truncated));
-        });
-        rx
-    }
-
     struct Running {
         started: ExecStarted,
         pid: libc::pid_t,
         timeout_ms: u64,
-        out: mpsc::Receiver<(Vec<u8>, bool)>,
-        err: mpsc::Receiver<(Vec<u8>, bool)>,
+        io: Arc<command_io::CommandIo>,
+        out: mpsc::Receiver<()>,
+        err: Option<mpsc::Receiver<()>>,
         status: mpsc::Receiver<io::Result<std::process::ExitStatus>>,
     }
 
@@ -697,7 +837,7 @@ mod linux {
         if x.argv.is_empty() {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "argv is empty"));
         }
-        let limit = x.output_limit.min(MAX_GUEST_FRAME / 4);
+        let mut io = command_io::CommandIo::new()?;
         let leaf = exec_cgroup(x.audit.as_ref().map(|a| a.task_uid))?;
         let procs = std::ffi::CString::new(format!("{}/cgroup.procs", leaf.0)).unwrap();
         // Audited commands run only under the protected collector; if it is
@@ -735,7 +875,7 @@ mod linux {
             command
                 .env(
                     "PATH",
-                    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                 )
                 .env("HOME", "/root")
                 .env("LANG", "C.UTF-8")
@@ -743,10 +883,25 @@ mod linux {
         }
         command
             .current_dir(if x.cwd.is_empty() { "/root" } else { &x.cwd })
-            .stdin(Stdio::null())
+            .stdin(if x.stdin_path.is_empty() {
+                if x.stdin_open {
+                    Stdio::piped()
+                } else {
+                    Stdio::null()
+                }
+            } else {
+                Stdio::from(File::open(&x.stdin_path)?)
+            })
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .process_group(0);
+            .stderr(Stdio::piped());
+        if x.pty {
+            io.terminal(&mut command)?;
+        }
+        let pty = x.pty;
+        let audited = x.audit.is_some();
+        if !pty {
+            command.process_group(0);
+        }
         let status_w = status_pipe.as_ref().map(|(_, w)| w.as_raw_fd());
         let env_r = env_pipe.as_ref().map(|(r, _)| r.as_raw_fd());
         // SAFETY: open/write/close/dup2/fcntl only, between fork and exec. A
@@ -754,6 +909,11 @@ mod linux {
         // closed).
         unsafe {
             command.pre_exec(move || {
+                if pty
+                    && (libc::setsid() < 0 || (!audited && libc::ioctl(0, libc::TIOCSCTTY, 0) < 0))
+                {
+                    return Err(io::Error::last_os_error());
+                }
                 let fd = libc::open(procs.as_ptr(), libc::O_WRONLY | libc::O_CLOEXEC);
                 if fd < 0 {
                     return Err(io::Error::last_os_error());
@@ -791,8 +951,23 @@ mod linux {
             });
         }
         let pid = child.id() as libc::pid_t;
-        let out = capped_reader(child.stdout.take().unwrap(), limit);
-        let err = capped_reader(child.stderr.take().unwrap(), limit);
+        io.pid = pid;
+        if let Some(input) = child.stdin.take() {
+            unsafe {
+                libc::fcntl(input.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK);
+            }
+            io.input = Some(Mutex::new(Some(input)));
+        }
+        let io = Arc::new(io);
+        let out = if let Some(terminal) = &io.terminal {
+            command_io::capture(terminal.try_clone()?, io.out.clone(), pid)
+        } else {
+            command_io::capture(child.stdout.take().unwrap(), io.out.clone(), pid)
+        };
+        let err = child
+            .stderr
+            .take()
+            .map(|source| command_io::capture(source, io.err.clone(), pid));
         let (tx, status) = mpsc::channel();
         if let Some((r, w)) = status_pipe {
             drop(w);
@@ -818,6 +993,7 @@ mod linux {
             },
             pid,
             timeout_ms: x.timeout_ms,
+            io,
             out,
             err,
             status,
@@ -842,7 +1018,14 @@ mod linux {
             }
             return Ok(std::process::ExitStatus::from_raw(raw));
         }
-        collector.recv().map_err(io::Error::other)?
+        let status = collector.recv().map_err(io::Error::other)??;
+        if status.signal().is_some() {
+            Ok(status)
+        } else {
+            Err(io::Error::other(
+                "protected exec collector exited without command status",
+            ))
+        }
     }
 
     fn finish(r: Running) -> io::Result<ExecDone> {
@@ -861,8 +1044,18 @@ mod linux {
         // Background jobs keep running. If one still holds a pipe, reply with
         // what was read so far instead of waiting for it.
         let grace = Duration::from_millis(50);
-        let (stdout, t1) = r.out.recv_timeout(grace).unwrap_or((Vec::new(), true));
-        let (stderr, t2) = r.err.recv_timeout(grace).unwrap_or((Vec::new(), true));
+        let _ = r.out.recv_timeout(grace);
+        if let Some(err) = r.err {
+            let _ = err.recv_timeout(grace);
+        }
+        r.io.finished
+            .store(true, std::sync::atomic::Ordering::Release);
+        let out = r.io.out.lock().unwrap();
+        let err = r.io.err.lock().unwrap();
+        let stdout = out.chunk(0, DEFAULT_OUTPUT_LIMIT)?;
+        let stderr = err.chunk(0, DEFAULT_OUTPUT_LIMIT)?;
+        let t1 = out.failed || out.size > stdout.len() as u64;
+        let t2 = err.failed || err.size > stderr.len() as u64;
         Ok(ExecDone {
             exit_code: status.code().unwrap_or(-1),
             signal: status.signal().unwrap_or(0),

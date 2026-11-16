@@ -37,7 +37,7 @@ var lifeHandlers = map[string]lifeHandler{}
 
 // lifeReads are reads served from lifecycle state (get/list by kind).
 var lifeKinds = map[string]bool{"blob": true, "cache": true, "volume": true, "attachment": true, "artifact": true, "backup": true,
-	"template": true, "recipe": true, "warm_pool": true, "change_set": true}
+	"snapshot": true, "template": true, "recipe": true, "warm_pool": true, "change_set": true}
 
 func lifeOperation(name string) bool {
 	if strings.HasPrefix(name, "change_set_") {
@@ -119,6 +119,11 @@ func (s *Service) lifeHTTP(w http.ResponseWriter, r *http.Request, id string, op
 		return
 	}
 	wait := uintField(in, "wait_ms")
+	// Share URLs are transient: operation reads cannot recover a bearer.
+	// Give the initial response time to carry its one permitted disclosure.
+	if op.Name == "port_share_link" && wait == 0 {
+		wait = 60000
+	}
 	if wait > 60000 {
 		writeError(w, id, "INVALID_ARGUMENT", "wait_ms limit is 60000", nil)
 		return
@@ -152,6 +157,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 	hash := bearerHash(name + "\n" + string(raw))
 	key := a.Principal + "\n" + name + "\n" + textField(in, "idempotency_key")
 	s.readLock()
+	retryHash := s.retryHash(name, in)
 	if s.broken {
 		s.mu.Unlock()
 		return "", false, reject("DATA_UNAVAILABLE", "journal unavailable")
@@ -166,7 +172,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 		if !s.lifeOperationAllowed(a, rec) {
 			return "", false, reject("NOT_FOUND", "operation not found")
 		}
-		if rec.Hash != hash {
+		if rec.Hash != hash && (rec.RetryHashV1 == "" || rec.RetryHashV1 != retryHash) {
 			return old, false, reject("IDEMPOTENCY_CONFLICT", "key already used with different inputs")
 		}
 		return old, true, nil
@@ -198,7 +204,7 @@ func (s *Service) lifeStartWith(a caller, name string, in map[string]any, handle
 		operation.Outcome = &api.Outcome{Result: &adapter}
 		close(done)
 	}
-	rec := &record{Operation: operation, Hash: hash, Key: key, Resource: plan.ref, Caller: a}
+	rec := &record{Operation: operation, Hash: hash, RetryHashV1: retryHash, Key: key, Resource: plan.ref, Caller: a}
 	s.journal.Operations[opID] = rec
 	s.keys[key] = opID
 	s.done[opID] = done
@@ -279,7 +285,7 @@ func restoreInPlace(dst, src reflect.Value) {
 func (s *Service) keepEphemeral(restored *lifeState) {
 	for id, old := range s.life.Sandboxes {
 		if n, ok := restored.Sandboxes[id]; ok {
-			n.activity, n.idleFrom, n.waking = old.activity, old.idleFrom, old.waking
+			n.Activity, n.IdleFrom, n.waking, n.reconciling = old.Activity, old.IdleFrom, old.waking, old.reconciling
 		}
 	}
 }
@@ -306,7 +312,11 @@ func (s *Service) lifeRun(opID string, plan lifePlan) {
 		err = plan.finish(result, err)
 	}
 	if plan.more != nil {
-		refs := append(*rec.Operation.ResourceIds, plan.more()...)
+		more := plan.more()
+		refs := append(*rec.Operation.ResourceIds, more...)
+		for _, ref := range more {
+			ids = append(ids, ref.Id)
+		}
 		rec.Operation.ResourceIds = &refs
 	}
 	now := timestamp()
@@ -417,19 +427,29 @@ func (s *Service) lifeRespond(w http.ResponseWriter, r *http.Request, requestID,
 		return
 	}
 	op := rec.Operation
-	if op.Error != nil {
-		send = prepareError(w, requestID, *op.Error)
-		return
-	}
 	refs := []api.ResourceRef{rec.Resource}
 	if op.ResourceIds != nil {
 		refs = *op.ResourceIds
 	}
 	result := api.MutationEnvelope{OperationId: id, ResourceIds: refs, RequestId: requestID, Replayed: replayed, Operation: &op}
 	status := 202
-	if op.State == "succeeded" {
+	if terminal(op.State) {
 		status = 200
+	}
+	if op.State == "succeeded" && op.Outcome != nil {
 		result.Result = op.Outcome.Result
+		if value(op.OperationName) == "port_share_link" && op.Outcome != nil && op.Outcome.Result != nil && !replayed {
+			var out map[string]any
+			json.Unmarshal(*op.Outcome.Result, &out)
+			grant := textField(out, "grant_id")
+			if url := s.previewSecrets[grant]; url != "" {
+				out["url"], out["secret_available"] = url, true
+				delete(s.previewSecrets, grant)
+				raw, _ := json.Marshal(out)
+				transient := api.AdapterDocument(raw)
+				result.Result = &transient
+			}
+		}
 	}
 	send = prepareJSON(w, status, result)
 }
@@ -475,6 +495,18 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 		}
 	}
 	switch kind {
+	case "credential_source", "settings_source", "auth_flow", "identity_provider", "port", "network_policy", "network_attachment", "grant", "configuration", "connection":
+		for _, n := range s.life.Networks {
+			if textField(n.R, "kind") == kind {
+				add(n.R)
+			}
+		}
+	case "snapshot":
+		for _, snap := range s.journal.Snapshots {
+			if snap.Snapshot.State != "deleted" && s.snapshotAllowed(a, snap) {
+				all = append(all, object(snap.Snapshot))
+			}
+		}
 	case "job":
 		for _, v := range s.life.Jobs {
 			add(v.R)
@@ -504,6 +536,12 @@ func (s *Service) lifeItems(a caller, kind string) []map[string]any {
 			add(v.R)
 		}
 	case "template":
+		if s.installedTemplate != nil {
+			raw, _ := json.Marshal(s.installedTemplate)
+			var m map[string]any
+			json.Unmarshal(raw, &m)
+			add(m)
+		}
 		for _, v := range s.life.Templates {
 			add(v.R)
 		}
@@ -544,6 +582,18 @@ func (s *Service) lifeFind(a caller, kind, id string) map[string]any {
 	if kind == "recipe" && !strings.HasPrefix(id, "rc_") {
 		// A recipe name resolves to its current immutable version.
 		id = s.life.RecipeNames[a.Principal+"\n"+id]
+	}
+	if kind == "template" && !strings.HasPrefix(id, "tp_") {
+		var found map[string]any
+		for _, m := range s.lifeItems(a, kind) {
+			if textField(m, "name") == id && textField(m, "state") == "ready" {
+				if found != nil {
+					return nil
+				}
+				found = m
+			}
+		}
+		return found
 	}
 	for _, m := range s.lifeItems(a, kind) {
 		if textField(m, "id") == id {

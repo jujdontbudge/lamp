@@ -1,0 +1,150 @@
+# Install and run code
+
+The 0.1.2 installer includes the engine and a signed Linux seed. The older
+0.1.1 installer installs control binaries only and cannot run this quick start.
+
+On Ubuntu/Linux amd64 or arm64 with KVM, or Apple Silicon macOS 26+:
+
+```sh
+curl -fsSL https://lamp.eilmer.si/install.sh | sh
+"$HOME/.local/lamp/current/bin/lamp" sandbox run -- python3 -c 'print("hello from Lamp")'
+```
+
+`run` creates a VM, waits for readiness, runs the command with separate stdout
+and stderr and its real exit code, then deletes the sandbox. It uses the
+installed default template: 2 vCPUs, up to 2048 MiB RAM, 20 GiB disk, 4096 PIDs.
+On Macs the installer selects 2048, 1024, 512 or 256 MiB from current available
+memory, leaving a quarter of those pages (at least 256 MiB) for host activity after accounting
+for the 256 MiB VMM allowance. It retains the engine's physical host reserve
+and capacity checks. The physical reserve stays at one quarter of host RAM,
+capped at 2048 MiB; available-memory headroom is capped at that reserve.
+`lamp template list` shows the selected default resources.
+If even the smallest guest cannot fit, installation refuses with observed
+memory, the required headroom and a next step before creating engine files.
+The default template is private. Persistent sandboxes suspend after 300 seconds
+idle and retain suspended state for 7 days. Previews are private by default;
+network/package setup is documented separately when available on the host.
+
+For a sandbox you keep, add the printed PATH line to your shell profile and
+current shell (`export PATH="$HOME/.local/lamp/current/bin:$PATH"`), then:
+
+```sh
+lamp template list
+lamp sandbox create
+lamp sandbox exec <id-from-create> -- uname -a
+lamp sandbox get <id-from-create>
+```
+
+Delete using `lamp sandbox delete ID --expected-revision N`, where N is the
+revision from `sandbox get`. `sandbox run` does this cleanup automatically.
+
+## Engine setup
+
+Engine setup is part of the installer above; there is no separate engine
+command or source build. These are its host requirements.
+
+Linux requires `/dev/kvm`, administrator access available through `sudo -n`
+(or running as root), and host dependencies. On Ubuntu/Debian the installer installs missing
+`xfsprogs nftables util-linux passt iproute2 python3` packages automatically
+through apt. On other distributions it names the packages to install. It never opens a password prompt, downloads Firecracker from a
+third-party service during setup, or substitutes host execution for a VM.
+Hosts without KVM are refused with an explanation. Automatic gVisor enrollment
+is not available in this installer.
+
+macOS requires Apple Silicon, macOS 26+, APFS clone support, and noninteractive
+administrator access for isolated worker accounts and root-owned engine files.
+Log into macOS before installation. The installer runs its engine commands
+in that login session so Virtualization.framework can seal saved state,
+including when installation is initiated over SSH. This does not install a
+system launch item. A locked session can cold-boot Linux templates; memory
+fork and resume still require the session to be unlocked.
+It uses the release's signed/notarized engine without building from source or
+accessing the Keychain. The 8 GB Air uses a smaller default when its everyday
+apps leave less memory available, and no RAM-backed capture disk. The reserve
+limits total physical VM allocations; it is not added to the available-page
+requirement. Current Linux seeds support guarded networking on Mac hosts. Rebuild older
+templates to receive the guarded NIC and current guest helper; see
+[guest networking](guest-linux.md) and [previews and policy](networking.md).
+
+The default store on Linux is an **80 GiB sparse XFS image**, with reflinks.
+It occupies physical space as data is written. Allow at least 20 GiB of logical
+store space per live sandbox, plus the seed, templates and saved state. Set
+`LAMP_STORE_GIB` for a larger store; values below 80 are refused. Keep enough
+physical disk space for your actual writes. macOS uses a separate APFS directory.
+
+## Locations, credentials and a second install
+
+The installer prints the exact binary directory and PATH line. It does not
+edit your shell profile. Clients resolve their own installation, even when
+called through a symlink, so no socket or token flags are needed.
+
+- Binaries: `<prefix>/current/bin`
+- Owner token: `<prefix>/config/owner.token` (private; never paste it into chat)
+- Local API socket: `<prefix>/run/api.sock`
+- Linux engine: `/var/lib/lamp-i/<prefix-hash>` and `/run/lamp-<prefix-hash>`
+- Mac engine: `/private/var/lamp-i/<prefix-hash>` and
+  `/private/var/run/lamp-<prefix-hash>`
+
+`lamp-mcp` finds the same socket and credential. `LAMP_TOKEN_FILE` works in
+both clients; `--token-file` also works before or after CLI command words.
+`LAMP_SOCKET`/`--socket` and `LAMP_API_URL`/`--api-url` select another endpoint.
+Selecting a remote endpoint never automatically sends the local owner token;
+provide an explicit token or token file for that endpoint.
+
+To install beside another engine, use a short, new prefix:
+
+```sh
+curl -fsSL https://lamp.eilmer.si/install.sh | LAMP_PREFIX="$HOME/.local/lamp-alt" sh
+"$HOME/.local/lamp-alt/current/bin/lamp" sandbox run -- uname -a
+```
+
+Services, worker identities, engine binaries, network policy, capture paths and
+stores are specific to that prefix. Setup refuses an existing engine directory
+rather than replacing it. Prefixes exceeding the Unix socket path limit are
+refused before files are installed. Use `LAMP_SERVICE=process` when you do not
+want service-manager enrollment. Engine grants are renewed hourly by the
+installer agent; leave it running. `lamp-installer status --prefix PREFIX`
+reports the supervisor and API health. Logs are in `<prefix>/log`.
+
+## Building a release
+
+Release maintainers supply prepared seeds to `tools/release/build.py` via
+`--seed-linux-amd64`, `--seed-linux-arm64` and `--seed-darwin-arm64`, alongside
+the Linux engine builders and `--firecracker-amd64`/`--firecracker-arm64`
+directories containing `firecracker` and `jailer`. Linux seeds use the
+Firecracker `sha256-c4m` format and `vmlinux`; Mac seeds use the VZ seed format
+and `Image`. They are distinct artifacts. The release signs every seed file,
+including its compressed disk. Installing verifies the release signature and
+the engine verifies the expanded seed before probing the default template.
+A missing engine or seed prevents building an installable sandbox release.
+
+## Update, rollback and remove an install
+
+`lamp-installer update --prefix "$LAMP_PREFIX"` checks
+`https://lamp.eilmer.si/releases/latest.json`, downloads the selected platform
+archive and verifies its index, manifest and payload against the release key
+pinned at installation. It restarts the daemon while preserving state. If the
+current release is already newest, it prints `already up to date`. Use
+`--source https://your-release-service` for a mirror serving the same layout,
+or `--release /path/to/signed-release` to update offline. Explicit rollback is
+`lamp-installer rollback --prefix "$LAMP_PREFIX"`.
+
+`lamp version --json` asks the installed daemon for its release, API version
+and authenticated local supervisor version, and includes `client_version`.
+Without a local daemon it reports the client binary's version. Explicit
+connection flags report connection errors instead. The same authenticated
+information is available at `GET /v1/version` and MCP `version_get`. Older
+supervisors that do not advertise a version report `null`; disconnected engines
+have `connected: false`. `lampd --version`, `lamp-installer --version` and
+`lamp-supervisor --version` identify their own binaries without starting them.
+The served OpenAPI `info.version` is the daemon release, with the contract
+version in `info.x-api-version`.
+
+Uninstall requires an explicit data choice:
+`lamp-installer uninstall --prefix "$LAMP_PREFIX" --data delete --confirm-delete NAME`
+removes that install's services, managed engine, store and Mac worker accounts.
+Find `NAME` with `lamp-installer status --prefix "$LAMP_PREFIX" --json`.
+`--data retain` keeps owner data and its managed engine store/binaries, and
+prints their location; `--data export --export-dir DIR` also exports the control
+state. An independently installed system engine remains independently managed.
+Cleanup failures return an error so a failed removal cannot look successful.

@@ -2822,6 +2822,22 @@ type CredentialSourceListResult struct {
 	NextCursor *string            `json:"next_cursor,omitempty"`
 	RequestId  string             `json:"request_id"`
 }
+type CredentialSourceRevokeCompletion struct {
+}
+type CredentialSourceRevokeInput struct {
+	CredentialSourceId string  `json:"credential_source_id"`
+	IdempotencyKey     string  `json:"idempotency_key"`
+	WaitMs             *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision   uint64  `json:"expected_revision"`
+}
+type CredentialSourceRevokeResult struct {
+	OperationId string                            `json:"operation_id"`
+	ResourceIds []ResourceRef                     `json:"resource_ids"`
+	RequestId   string                            `json:"request_id"`
+	Replayed    bool                              `json:"replayed"`
+	Operation   *Operation                        `json:"operation,omitempty"`
+	Result      *CredentialSourceRevokeCompletion `json:"result,omitempty"`
+}
 type CredentialSourceState string
 
 const (
@@ -3056,6 +3072,7 @@ const (
 	ErrorCodeIDEMPOTENCYHOMEUNAVAILABLE ErrorCode = "IDEMPOTENCY_HOME_UNAVAILABLE"
 	ErrorCodeTOKENHOMEUNAVAILABLE       ErrorCode = "TOKEN_HOME_UNAVAILABLE"
 	ErrorCodeAUDITUNAVAILABLE           ErrorCode = "AUDIT_UNAVAILABLE"
+	ErrorCodeFAILEDPRECONDITION         ErrorCode = "FAILED_PRECONDITION"
 )
 
 type ErrorDetail struct {
@@ -3307,28 +3324,35 @@ const (
 )
 
 type Exec struct {
-	Id           string         `json:"id"`
-	Kind         ExecKind       `json:"kind"`
-	FleetId      string         `json:"fleet_id"`
-	OwnerId      string         `json:"owner_id"`
-	Revision     uint64         `json:"revision"`
-	CreatedAt    string         `json:"created_at"`
-	UpdatedAt    string         `json:"updated_at"`
-	State        ExecState      `json:"state"`
-	Labels       StringMap      `json:"labels"`
-	Visibility   ExecVisibility `json:"visibility"`
-	SandboxId    *string        `json:"sandbox_id,omitempty"`
-	SessionId    *string        `json:"session_id,omitempty"`
-	TaskId       *string        `json:"task_id,omitempty"`
-	Argv         *[]string      `json:"argv,omitempty"`
-	Cwd          *string        `json:"cwd,omitempty"`
-	Env          *StringMap     `json:"env,omitempty"`
-	StdinBlobId  *string        `json:"stdin_blob_id,omitempty"`
-	Pty          *bool          `json:"pty,omitempty"`
-	StartedAt    *string        `json:"started_at,omitempty"`
-	ExitCode     *int64         `json:"exit_code,omitempty"`
-	Signal       *int64         `json:"signal,omitempty"`
-	OutputCursor *string        `json:"output_cursor,omitempty"`
+	Id              string         `json:"id"`
+	Kind            ExecKind       `json:"kind"`
+	FleetId         string         `json:"fleet_id"`
+	OwnerId         string         `json:"owner_id"`
+	Revision        uint64         `json:"revision"`
+	CreatedAt       string         `json:"created_at"`
+	UpdatedAt       string         `json:"updated_at"`
+	State           ExecState      `json:"state"`
+	Labels          StringMap      `json:"labels"`
+	Visibility      ExecVisibility `json:"visibility"`
+	SandboxId       *string        `json:"sandbox_id,omitempty"`
+	SessionId       *string        `json:"session_id,omitempty"`
+	TaskId          *string        `json:"task_id,omitempty"`
+	Argv            *[]string      `json:"argv,omitempty"`
+	Cwd             *string        `json:"cwd,omitempty"`
+	Env             *StringMap     `json:"env,omitempty"`
+	StdinBlobId     *string        `json:"stdin_blob_id,omitempty"`
+	Pty             *bool          `json:"pty,omitempty"`
+	StartedAt       *string        `json:"started_at,omitempty"`
+	ExitCode        *int64         `json:"exit_code,omitempty"`
+	Signal          *int64         `json:"signal,omitempty"`
+	OutputCursor    *string        `json:"output_cursor,omitempty"`
+	StdoutBytes     *uint64        `json:"stdout_bytes,omitempty"`
+	StderrBytes     *uint64        `json:"stderr_bytes,omitempty"`
+	OutputTruncated *bool          `json:"output_truncated,omitempty"`
+	TimedOut        *bool          `json:"timed_out,omitempty"`
+	TimeoutMs       *uint64        `json:"timeout_ms,omitempty"`
+	FailureReason   *string        `json:"failure_reason,omitempty"`
+	StdinOpen       *bool          `json:"stdin_open,omitempty"`
 }
 type ExecCreateCompletion struct {
 	ExecId string `json:"exec_id"`
@@ -3350,6 +3374,8 @@ type ExecCreateInput struct {
 	Visibility     *ExecCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                     `json:"idempotency_key"`
 	WaitMs         *uint64                    `json:"wait_ms,omitempty"`
+	TimeoutMs      *uint64                    `json:"timeout_ms,omitempty"`
+	StdinOpen      *bool                      `json:"stdin_open,omitempty"`
 }
 type ExecCreateInputVisibility string
 
@@ -3398,6 +3424,7 @@ type ExecInputInput struct {
 	IdempotencyKey   string  `json:"idempotency_key"`
 	WaitMs           *uint64 `json:"wait_ms,omitempty"`
 	ExpectedRevision uint64  `json:"expected_revision"`
+	Eof              *bool   `json:"eof,omitempty"`
 }
 type ExecInputResult struct {
 	OperationId string               `json:"operation_id"`
@@ -3431,9 +3458,10 @@ const (
 )
 
 type ExecListInput struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *uint64 `json:"limit,omitempty"`
-	WaitMs *uint64 `json:"wait_ms,omitempty"`
+	Cursor    *string `json:"cursor,omitempty"`
+	Limit     *uint64 `json:"limit,omitempty"`
+	WaitMs    *uint64 `json:"wait_ms,omitempty"`
+	SandboxId *string `json:"sandbox_id,omitempty"`
 }
 type ExecListResult struct {
 	Items      []Exec  `json:"items"`
@@ -3696,6 +3724,8 @@ type Fleet struct {
 	CoordinationState      *FleetCoordinationState `json:"coordination_state,omitempty"`
 	Limits                 *Limits                 `json:"limits,omitempty"`
 	UpdatePolicy           *UpdatePolicy           `json:"update_policy,omitempty"`
+	UnavailableHostIds     *[]string               `json:"unavailable_host_ids,omitempty"`
+	StrandedSandboxIds     *[]string               `json:"stranded_sandbox_ids,omitempty"`
 }
 type FleetCoordinationState string
 
@@ -3989,6 +4019,28 @@ type Harness struct {
 	Certification     *string           `json:"certification,omitempty"`
 	EvidenceRef       *string           `json:"evidence_ref,omitempty"`
 }
+type HarnessEnrollCompletion struct {
+	HarnessId string `json:"harness_id"`
+}
+type HarnessEnrollInput struct {
+	HarnessId          string    `json:"harness_id"`
+	Model              *string   `json:"model,omitempty"`
+	CredentialSourceId *string   `json:"credential_source_id,omitempty"`
+	NestedCreate       *bool     `json:"nested_create,omitempty"`
+	SettingsSourceIds  *[]string `json:"settings_source_ids,omitempty"`
+	ConnectionIds      *[]string `json:"connection_ids,omitempty"`
+	IdempotencyKey     string    `json:"idempotency_key"`
+	WaitMs             *uint64   `json:"wait_ms,omitempty"`
+	SecretNames        *[]string `json:"secret_names,omitempty"`
+}
+type HarnessEnrollResult struct {
+	OperationId string                   `json:"operation_id"`
+	ResourceIds []ResourceRef            `json:"resource_ids"`
+	RequestId   string                   `json:"request_id"`
+	Replayed    bool                     `json:"replayed"`
+	Operation   *Operation               `json:"operation,omitempty"`
+	Result      *HarnessEnrollCompletion `json:"result,omitempty"`
+}
 type HarnessGetInput struct {
 	HarnessId string `json:"harness_id"`
 }
@@ -4058,6 +4110,7 @@ type Host struct {
 	EngineIds          *[]string        `json:"engine_ids,omitempty"`
 	CredentialOwnerIds *[]string        `json:"credential_owner_ids,omitempty"`
 	HeartbeatAt        *string          `json:"heartbeat_at,omitempty"`
+	Version            *string          `json:"version,omitempty"`
 }
 type HostBenchCompletion struct {
 }
@@ -4765,7 +4818,7 @@ type KeyCreateInput struct {
 	PrincipalId    *string                   `json:"principal_id,omitempty"`
 	ParentKeyId    *string                   `json:"parent_key_id,omitempty"`
 	Scope          *Scope                    `json:"scope,omitempty"`
-	ExpiresAt      *string                   `json:"expires_at,omitempty"`
+	ExpiresAt      string                    `json:"expires_at"`
 	Labels         *StringMap                `json:"labels,omitempty"`
 	Visibility     *KeyCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                    `json:"idempotency_key"`
@@ -5262,6 +5315,7 @@ const (
 	LifecycleIdleActionSuspend LifecycleIdleAction = "suspend"
 	LifecycleIdleActionDelete  LifecycleIdleAction = "delete"
 	LifecycleIdleActionKeep    LifecycleIdleAction = "keep"
+	LifecycleIdleActionStop    LifecycleIdleAction = "stop"
 )
 
 type LifecycleOnJobEnd string
@@ -7329,6 +7383,57 @@ const (
 	RecipeVisibilityShared  RecipeVisibility = "shared"
 )
 
+type Relay struct {
+	Id         string          `json:"id"`
+	Kind       RelayKind       `json:"kind"`
+	FleetId    string          `json:"fleet_id"`
+	OwnerId    string          `json:"owner_id"`
+	Revision   uint64          `json:"revision"`
+	CreatedAt  string          `json:"created_at"`
+	UpdatedAt  string          `json:"updated_at"`
+	State      RelayState      `json:"state"`
+	Labels     StringMap       `json:"labels"`
+	Visibility RelayVisibility `json:"visibility"`
+	HostId     *string         `json:"host_id,omitempty"`
+	Origin     *string         `json:"origin,omitempty"`
+}
+type RelayGetInput struct {
+	RelayId string `json:"relay_id"`
+}
+type RelayGetResult struct {
+	Data      Relay  `json:"data"`
+	RequestId string `json:"request_id"`
+}
+type RelayKind string
+
+const (
+	RelayKindRelay RelayKind = "relay"
+)
+
+type RelayListInput struct {
+	Cursor *string `json:"cursor,omitempty"`
+	Limit  *uint64 `json:"limit,omitempty"`
+	WaitMs *uint64 `json:"wait_ms,omitempty"`
+}
+type RelayListResult struct {
+	Items      []Relay `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+	RequestId  string  `json:"request_id"`
+}
+type RelayState string
+
+const (
+	RelayStateConnected    RelayState = "connected"
+	RelayStateDisconnected RelayState = "disconnected"
+)
+
+type RelayVisibility string
+
+const (
+	RelayVisibilityPrivate RelayVisibility = "private"
+	RelayVisibilityShared  RelayVisibility = "shared"
+)
+
 type ReplicaReceipt struct {
 	HostId            *string `json:"host_id,omitempty"`
 	ManifestDigest    *string `json:"manifest_digest,omitempty"`
@@ -7435,7 +7540,7 @@ type Resources struct {
 	Vcpus     uint64 `json:"vcpus"`
 	MemoryMib uint64 `json:"memory_mib"`
 	DiskGib   uint64 `json:"disk_gib"`
-	PidsMax   uint64 `json:"pids_max"`
+	PidsMax   uint64 `json:"pids_max,omitempty"`
 }
 type RevocationStatus struct {
 	Enforcers *[]EnforcerStatus `json:"enforcers,omitempty"`
@@ -7454,48 +7559,50 @@ const (
 )
 
 type Sandbox struct {
-	Id                      string               `json:"id"`
-	Kind                    SandboxKind          `json:"kind"`
-	FleetId                 string               `json:"fleet_id"`
-	OwnerId                 string               `json:"owner_id"`
-	Revision                uint64               `json:"revision"`
-	CreatedAt               string               `json:"created_at"`
-	UpdatedAt               string               `json:"updated_at"`
-	State                   SandboxState         `json:"state"`
-	Labels                  StringMap            `json:"labels"`
-	Visibility              SandboxVisibility    `json:"visibility"`
-	RecipeId                *string              `json:"recipe_id,omitempty"`
-	TemplateId              *string              `json:"template_id,omitempty"`
-	HostId                  *string              `json:"host_id,omitempty"`
-	EngineId                *string              `json:"engine_id,omitempty"`
-	GuestOs                 *string              `json:"guest_os,omitempty"`
-	Arch                    *string              `json:"arch,omitempty"`
-	Boundary                *SandboxBoundary     `json:"boundary,omitempty"`
-	Resources               *Resources           `json:"resources,omitempty"`
-	Devices                 *[]Device            `json:"devices,omitempty"`
-	TaskId                  *string              `json:"task_id,omitempty"`
-	ParentSandboxId         *string              `json:"parent_sandbox_id,omitempty"`
-	Generation              *uint64              `json:"generation,omitempty"`
-	ForkPreparation         *ForkPreparation     `json:"fork_preparation,omitempty"`
-	HarnessId               *string              `json:"harness_id,omitempty"`
-	AuthMode                *SandboxAuthMode     `json:"auth_mode,omitempty"`
-	KitIds                  *[]string            `json:"kit_ids,omitempty"`
-	ConnectionIds           *[]string            `json:"connection_ids,omitempty"`
-	SettingsSourceIds       *[]string            `json:"settings_source_ids,omitempty"`
-	NetworkPolicyId         *string              `json:"network_policy_id,omitempty"`
-	NetworkPlans            *[]NetworkPlan       `json:"network_plans,omitempty"`
-	NetworkAttachmentIds    *[]string            `json:"network_attachment_ids,omitempty"`
-	AttachmentIds           *[]string            `json:"attachment_ids,omitempty"`
-	Lifecycle               *Lifecycle           `json:"lifecycle,omitempty"`
-	SuspendEligibility      *SuspendEligibility  `json:"suspend_eligibility,omitempty"`
-	Readiness               *Readiness           `json:"readiness,omitempty"`
-	CaptureTrust            *SandboxCaptureTrust `json:"capture_trust,omitempty"`
-	SnapshotId              *string              `json:"snapshot_id,omitempty"`
-	WarmPoolId              *string              `json:"warm_pool_id,omitempty"`
-	EffectivePolicyRevision *uint64              `json:"effective_policy_revision,omitempty"`
-	Durability              *SandboxDurability   `json:"durability,omitempty"`
-	CustodyHostIds          *[]string            `json:"custody_host_ids,omitempty"`
-	Exposures               *[]string            `json:"exposures,omitempty"`
+	Id                      string                `json:"id"`
+	Kind                    SandboxKind           `json:"kind"`
+	FleetId                 string                `json:"fleet_id"`
+	OwnerId                 string                `json:"owner_id"`
+	Revision                uint64                `json:"revision"`
+	CreatedAt               string                `json:"created_at"`
+	UpdatedAt               string                `json:"updated_at"`
+	State                   SandboxState          `json:"state"`
+	Labels                  StringMap             `json:"labels"`
+	Visibility              SandboxVisibility     `json:"visibility"`
+	RecipeId                *string               `json:"recipe_id,omitempty"`
+	TemplateId              *string               `json:"template_id,omitempty"`
+	HostId                  *string               `json:"host_id,omitempty"`
+	EngineId                *string               `json:"engine_id,omitempty"`
+	GuestOs                 *string               `json:"guest_os,omitempty"`
+	Arch                    *string               `json:"arch,omitempty"`
+	Boundary                *SandboxBoundary      `json:"boundary,omitempty"`
+	Resources               *Resources            `json:"resources,omitempty"`
+	Devices                 *[]Device             `json:"devices,omitempty"`
+	TaskId                  *string               `json:"task_id,omitempty"`
+	ParentSandboxId         *string               `json:"parent_sandbox_id,omitempty"`
+	Generation              *uint64               `json:"generation,omitempty"`
+	ForkPreparation         *ForkPreparation      `json:"fork_preparation,omitempty"`
+	HarnessId               *string               `json:"harness_id,omitempty"`
+	AuthMode                *SandboxAuthMode      `json:"auth_mode,omitempty"`
+	KitIds                  *[]string             `json:"kit_ids,omitempty"`
+	ConnectionIds           *[]string             `json:"connection_ids,omitempty"`
+	SettingsSourceIds       *[]string             `json:"settings_source_ids,omitempty"`
+	NetworkPolicyId         *string               `json:"network_policy_id,omitempty"`
+	NetworkPlans            *[]NetworkPlan        `json:"network_plans,omitempty"`
+	NetworkAttachmentIds    *[]string             `json:"network_attachment_ids,omitempty"`
+	AttachmentIds           *[]string             `json:"attachment_ids,omitempty"`
+	Lifecycle               *Lifecycle            `json:"lifecycle,omitempty"`
+	SuspendEligibility      *SuspendEligibility   `json:"suspend_eligibility,omitempty"`
+	Readiness               *Readiness            `json:"readiness,omitempty"`
+	CaptureTrust            *SandboxCaptureTrust  `json:"capture_trust,omitempty"`
+	SnapshotId              *string               `json:"snapshot_id,omitempty"`
+	WarmPoolId              *string               `json:"warm_pool_id,omitempty"`
+	EffectivePolicyRevision *uint64               `json:"effective_policy_revision,omitempty"`
+	Durability              *SandboxDurability    `json:"durability,omitempty"`
+	CustodyHostIds          *[]string             `json:"custody_host_ids,omitempty"`
+	Exposures               *[]string             `json:"exposures,omitempty"`
+	SavedStateUntil         *string               `json:"saved_state_until,omitempty"`
+	IdleCountdown           *SandboxIdleCountdown `json:"idle_countdown,omitempty"`
 }
 type SandboxAuthMode string
 
@@ -7514,6 +7621,32 @@ const (
 	SandboxBoundaryProcess SandboxBoundary = "process"
 )
 
+type SandboxBrowserCompletion = AdapterDocument
+type SandboxBrowserInput struct {
+	SandboxId      string                    `json:"sandbox_id"`
+	IdempotencyKey string                    `json:"idempotency_key"`
+	WaitMs         *uint64                   `json:"wait_ms,omitempty"`
+	Action         SandboxBrowserInputAction `json:"action"`
+	Url            *string                   `json:"url,omitempty"`
+	Expression     *string                   `json:"expression,omitempty"`
+}
+type SandboxBrowserInputAction string
+
+const (
+	SandboxBrowserInputActionNavigate   SandboxBrowserInputAction = "navigate"
+	SandboxBrowserInputActionEvaluate   SandboxBrowserInputAction = "evaluate"
+	SandboxBrowserInputActionScreenshot SandboxBrowserInputAction = "screenshot"
+	SandboxBrowserInputActionClose      SandboxBrowserInputAction = "close"
+)
+
+type SandboxBrowserResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxBrowserCompletion `json:"result,omitempty"`
+}
 type SandboxCaptureTrust string
 
 const (
@@ -7547,6 +7680,8 @@ type SandboxCreateInput struct {
 	IdempotencyKey    string                        `json:"idempotency_key"`
 	WaitMs            *uint64                       `json:"wait_ms,omitempty"`
 	Labels            *StringMap                    `json:"labels,omitempty"`
+	SnapshotId        *string                       `json:"snapshot_id,omitempty"`
+	BudgetId          *string                       `json:"budget_id,omitempty"`
 }
 type SandboxCreateInputAuthMode string
 
@@ -7589,6 +7724,39 @@ type SandboxDeleteResult struct {
 	Replayed    bool                     `json:"replayed"`
 	Operation   *Operation               `json:"operation,omitempty"`
 	Result      *SandboxDeleteCompletion `json:"result,omitempty"`
+}
+type SandboxDesktopCompletion = AdapterDocument
+type SandboxDesktopInput struct {
+	SandboxId      string                    `json:"sandbox_id"`
+	IdempotencyKey string                    `json:"idempotency_key"`
+	WaitMs         *uint64                   `json:"wait_ms,omitempty"`
+	Action         SandboxDesktopInputAction `json:"action"`
+	X              *uint64                   `json:"x,omitempty"`
+	Y              *uint64                   `json:"y,omitempty"`
+	Text           *string                   `json:"text,omitempty"`
+	Key            *string                   `json:"key,omitempty"`
+	Button         *uint64                   `json:"button,omitempty"`
+}
+type SandboxDesktopInputAction string
+
+const (
+	SandboxDesktopInputActionInfo        SandboxDesktopInputAction = "info"
+	SandboxDesktopInputActionMove        SandboxDesktopInputAction = "move"
+	SandboxDesktopInputActionClick       SandboxDesktopInputAction = "click"
+	SandboxDesktopInputActionType        SandboxDesktopInputAction = "type"
+	SandboxDesktopInputActionKey         SandboxDesktopInputAction = "key"
+	SandboxDesktopInputActionScreenshot  SandboxDesktopInputAction = "screenshot"
+	SandboxDesktopInputActionRecordStart SandboxDesktopInputAction = "record_start"
+	SandboxDesktopInputActionRecordStop  SandboxDesktopInputAction = "record_stop"
+)
+
+type SandboxDesktopResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxDesktopCompletion `json:"result,omitempty"`
 }
 type SandboxDeviceInputCompletion struct {
 	DeviceRef   DeviceRef `json:"device_ref"`
@@ -7653,8 +7821,10 @@ type SandboxFileDeleteResult struct {
 	Result      *SandboxFileDeleteCompletion `json:"result,omitempty"`
 }
 type SandboxFileListInput struct {
-	SandboxId string `json:"sandbox_id"`
-	Path      string `json:"path"`
+	SandboxId string  `json:"sandbox_id"`
+	Path      string  `json:"path"`
+	Cursor    *string `json:"cursor,omitempty"`
+	Limit     *uint64 `json:"limit,omitempty"`
 }
 type SandboxFileListResult struct {
 	Items      []FileEntry `json:"items"`
@@ -7662,12 +7832,51 @@ type SandboxFileListResult struct {
 	RequestId  string      `json:"request_id"`
 }
 type SandboxFileReadInput struct {
-	SandboxId   string `json:"sandbox_id"`
-	Path        string `json:"path"`
-	OffsetBytes uint64 `json:"offset_bytes"`
-	LengthBytes uint64 `json:"length_bytes"`
+	SandboxId   string  `json:"sandbox_id"`
+	Path        string  `json:"path"`
+	OffsetBytes *uint64 `json:"offset_bytes,omitempty"`
+	LengthBytes *uint64 `json:"length_bytes,omitempty"`
 }
 type SandboxFileReadResult = FileReadResult
+type SandboxFileRenameCompletion struct {
+}
+type SandboxFileRenameInput struct {
+	SandboxId        string  `json:"sandbox_id"`
+	Path             string  `json:"path"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+	Destination      string  `json:"destination"`
+}
+type SandboxFileRenameResult struct {
+	OperationId string                       `json:"operation_id"`
+	ResourceIds []ResourceRef                `json:"resource_ids"`
+	RequestId   string                       `json:"request_id"`
+	Replayed    bool                         `json:"replayed"`
+	Operation   *Operation                   `json:"operation,omitempty"`
+	Result      *SandboxFileRenameCompletion `json:"result,omitempty"`
+}
+type SandboxFileSearchInput struct {
+	SandboxId string `json:"sandbox_id"`
+	Path      string `json:"path"`
+	Query     string `json:"query"`
+	Contents  *bool  `json:"contents,omitempty"`
+}
+type SandboxFileSearchResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
+	Truncated  *bool       `json:"truncated,omitempty"`
+}
+type SandboxFileStatInput struct {
+	SandboxId string `json:"sandbox_id"`
+	Path      string `json:"path"`
+}
+type SandboxFileStatResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
+}
 type SandboxFileTransferCompletion struct {
 	BlobId *string `json:"blob_id,omitempty"`
 }
@@ -7694,6 +7903,17 @@ type SandboxFileTransferResult struct {
 	Replayed    bool                           `json:"replayed"`
 	Operation   *Operation                     `json:"operation,omitempty"`
 	Result      *SandboxFileTransferCompletion `json:"result,omitempty"`
+}
+type SandboxFileWatchInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Path      string  `json:"path"`
+	Cursor    *string `json:"cursor,omitempty"`
+	WaitMs    *uint64 `json:"wait_ms,omitempty"`
+}
+type SandboxFileWatchResult struct {
+	Items      []FileEntry `json:"items"`
+	NextCursor *string     `json:"next_cursor,omitempty"`
+	RequestId  string      `json:"request_id"`
 }
 type SandboxFileWriteCompletion struct {
 }
@@ -7762,21 +7982,105 @@ type SandboxGetResult struct {
 	Data      Sandbox `json:"data"`
 	RequestId string  `json:"request_id"`
 }
+type SandboxIdleCountdown struct {
+	Action       *string `json:"action,omitempty"`
+	GraceSeconds *uint64 `json:"grace_seconds,omitempty"`
+	IdleSince    *string `json:"idle_since,omitempty"`
+	FiresAt      *string `json:"fires_at,omitempty"`
+	ExpiresAt    *string `json:"expires_at,omitempty"`
+}
 type SandboxKind string
 
 const (
 	SandboxKindSandbox SandboxKind = "sandbox"
 )
 
+type SandboxKitCompletion = AdapterDocument
+type SandboxKitInput struct {
+	SandboxId      string             `json:"sandbox_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	WaitMs         *uint64            `json:"wait_ms,omitempty"`
+	Kit            SandboxKitInputKit `json:"kit"`
+}
+type SandboxKitInputKit string
+
+const (
+	SandboxKitInputKitBrowser SandboxKitInputKit = "browser"
+	SandboxKitInputKitDesktop SandboxKitInputKit = "desktop"
+	SandboxKitInputKitDocker  SandboxKitInputKit = "docker"
+	SandboxKitInputKitPython  SandboxKitInputKit = "python"
+	SandboxKitInputKitNode    SandboxKitInputKit = "node"
+	SandboxKitInputKitGo      SandboxKitInputKit = "go"
+	SandboxKitInputKitRust    SandboxKitInputKit = "rust"
+	SandboxKitInputKitC       SandboxKitInputKit = "c"
+	SandboxKitInputKitLsp     SandboxKitInputKit = "lsp"
+)
+
+type SandboxKitResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SandboxKitCompletion `json:"result,omitempty"`
+}
 type SandboxListInput struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *uint64 `json:"limit,omitempty"`
-	WaitMs *uint64 `json:"wait_ms,omitempty"`
+	Cursor         *string `json:"cursor,omitempty"`
+	Limit          *uint64 `json:"limit,omitempty"`
+	WaitMs         *uint64 `json:"wait_ms,omitempty"`
+	IncludeDeleted *bool   `json:"include_deleted,omitempty"`
 }
 type SandboxListResult struct {
 	Items      []Sandbox `json:"items"`
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
+}
+type SandboxLogsInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Limit     *uint64 `json:"limit,omitempty"`
+}
+type SandboxLogsResult struct {
+	Items     []json.RawMessage `json:"items"`
+	RequestId string            `json:"request_id"`
+}
+type SandboxLspCompletion = AdapterDocument
+type SandboxLspInput struct {
+	SandboxId      string                `json:"sandbox_id"`
+	IdempotencyKey string                `json:"idempotency_key"`
+	WaitMs         *uint64               `json:"wait_ms,omitempty"`
+	Action         SandboxLspInputAction `json:"action"`
+	Path           *string               `json:"path,omitempty"`
+	Text           *string               `json:"text,omitempty"`
+	Line           *uint64               `json:"line,omitempty"`
+	Character      *uint64               `json:"character,omitempty"`
+}
+type SandboxLspInputAction string
+
+const (
+	SandboxLspInputActionStart       SandboxLspInputAction = "start"
+	SandboxLspInputActionOpen        SandboxLspInputAction = "open"
+	SandboxLspInputActionSymbols     SandboxLspInputAction = "symbols"
+	SandboxLspInputActionCompletions SandboxLspInputAction = "completions"
+	SandboxLspInputActionDiagnostics SandboxLspInputAction = "diagnostics"
+	SandboxLspInputActionClose       SandboxLspInputAction = "close"
+	SandboxLspInputActionStop        SandboxLspInputAction = "stop"
+)
+
+type SandboxLspResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SandboxLspCompletion `json:"result,omitempty"`
+}
+type SandboxMetricsInput struct {
+	SandboxId string  `json:"sandbox_id"`
+	Limit     *uint64 `json:"limit,omitempty"`
+}
+type SandboxMetricsResult struct {
+	Items     []json.RawMessage `json:"items"`
+	RequestId string            `json:"request_id"`
 }
 type SandboxPrepareForkCompletion struct {
 	SandboxId       string          `json:"sandbox_id"`
@@ -7854,6 +8158,29 @@ type SandboxResumeResult struct {
 	Replayed    bool                     `json:"replayed"`
 	Operation   *Operation               `json:"operation,omitempty"`
 	Result      *SandboxResumeCompletion `json:"result,omitempty"`
+}
+type SandboxRunCodeCompletion = AdapterDocument
+type SandboxRunCodeInput struct {
+	SandboxId      string                   `json:"sandbox_id"`
+	IdempotencyKey string                   `json:"idempotency_key"`
+	WaitMs         *uint64                  `json:"wait_ms,omitempty"`
+	Code           string                   `json:"code"`
+	Lang           *SandboxRunCodeInputLang `json:"lang,omitempty"`
+	Context        *string                  `json:"context,omitempty"`
+}
+type SandboxRunCodeInputLang string
+
+const (
+	SandboxRunCodeInputLangPython SandboxRunCodeInputLang = "python"
+)
+
+type SandboxRunCodeResult struct {
+	OperationId string                    `json:"operation_id"`
+	ResourceIds []ResourceRef             `json:"resource_ids"`
+	RequestId   string                    `json:"request_id"`
+	Replayed    bool                      `json:"replayed"`
+	Operation   *Operation                `json:"operation,omitempty"`
+	Result      *SandboxRunCodeCompletion `json:"result,omitempty"`
 }
 type SandboxSaveTemplateCompletion struct {
 }
@@ -8030,6 +8357,8 @@ type Schedule struct {
 	OverlapPolicy *string            `json:"overlap_policy,omitempty"`
 	NextRunAt     *string            `json:"next_run_at,omitempty"`
 	Enabled       *bool              `json:"enabled,omitempty"`
+	LastRunAt     *string            `json:"last_run_at,omitempty"`
+	LastRunStatus *string            `json:"last_run_status,omitempty"`
 }
 type ScheduleCreateCompletion struct {
 	ScheduleId string `json:"schedule_id"`
@@ -8545,8 +8874,56 @@ const (
 	ScopeActionsItemWarmPoolGet                ScopeActionsItem = "warm_pool.get"
 	ScopeActionsItemWarmPoolList               ScopeActionsItem = "warm_pool.list"
 	ScopeActionsItemWarmPoolUpdate             ScopeActionsItem = "warm_pool.update"
+	ScopeActionsItemSandboxFileStat            ScopeActionsItem = "sandbox.file_stat"
+	ScopeActionsItemSandboxFileSearch          ScopeActionsItem = "sandbox.file_search"
+	ScopeActionsItemSandboxFileWatch           ScopeActionsItem = "sandbox.file_watch"
+	ScopeActionsItemSandboxFileRename          ScopeActionsItem = "sandbox.file_rename"
+	ScopeActionsItemSandboxKit                 ScopeActionsItem = "sandbox.kit"
+	ScopeActionsItemSandboxRunCode             ScopeActionsItem = "sandbox.run_code"
+	ScopeActionsItemSandboxLsp                 ScopeActionsItem = "sandbox.lsp"
+	ScopeActionsItemSandboxBrowser             ScopeActionsItem = "sandbox.browser"
+	ScopeActionsItemSandboxDesktop             ScopeActionsItem = "sandbox.desktop"
+	ScopeActionsItemSandboxMetrics             ScopeActionsItem = "sandbox.metrics"
+	ScopeActionsItemSandboxLogs                ScopeActionsItem = "sandbox.logs"
+	ScopeActionsItemSessionMessage             ScopeActionsItem = "session.message"
+	ScopeActionsItemSessionCancel              ScopeActionsItem = "session.cancel"
 )
 
+type SecretRequestCompletion struct {
+	EntryUrl string `json:"entry_url"`
+}
+type SecretRequestInput struct {
+	Name           string   `json:"name"`
+	Hosts          []string `json:"hosts"`
+	IdempotencyKey string   `json:"idempotency_key"`
+	WaitMs         *uint64  `json:"wait_ms,omitempty"`
+}
+type SecretRequestResult struct {
+	OperationId string                   `json:"operation_id"`
+	ResourceIds []ResourceRef            `json:"resource_ids"`
+	RequestId   string                   `json:"request_id"`
+	Replayed    bool                     `json:"replayed"`
+	Operation   *Operation               `json:"operation,omitempty"`
+	Result      *SecretRequestCompletion `json:"result,omitempty"`
+}
+type SecretSetCompletion struct {
+	Name string `json:"name"`
+}
+type SecretSetInput struct {
+	Name           string    `json:"name"`
+	Value          string    `json:"value"`
+	IdempotencyKey string    `json:"idempotency_key"`
+	WaitMs         *uint64   `json:"wait_ms,omitempty"`
+	Hosts          *[]string `json:"hosts,omitempty"`
+}
+type SecretSetResult struct {
+	OperationId string               `json:"operation_id"`
+	ResourceIds []ResourceRef        `json:"resource_ids"`
+	RequestId   string               `json:"request_id"`
+	Replayed    bool                 `json:"replayed"`
+	Operation   *Operation           `json:"operation,omitempty"`
+	Result      *SecretSetCompletion `json:"result,omitempty"`
+}
 type SecurityRevocation struct {
 	Digest          *string `json:"digest,omitempty"`
 	EffectiveAt     *string `json:"effective_at,omitempty"`
@@ -8578,6 +8955,11 @@ type Session struct {
 	LocationEpoch    *uint64                  `json:"location_epoch,omitempty"`
 	OutputCursor     *string                  `json:"output_cursor,omitempty"`
 	ContinuationRef  *string                  `json:"continuation_ref,omitempty"`
+	Repository       *string                  `json:"repository,omitempty"`
+	SharedSessionId  *string                  `json:"shared_session_id,omitempty"`
+	SharedEpoch      *uint64                  `json:"shared_epoch,omitempty"`
+	LastTurn         *SessionLastTurn         `json:"last_turn,omitempty"`
+	Transfer         *SessionTransfer         `json:"transfer,omitempty"`
 }
 type SessionAgentMode string
 
@@ -8614,6 +8996,22 @@ const (
 	SessionAuthModeDelegated    SessionAuthMode = "delegated"
 )
 
+type SessionCancelCompletion struct {
+}
+type SessionCancelInput struct {
+	SessionId        string  `json:"session_id"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+}
+type SessionCancelResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SessionEndCompletion `json:"result,omitempty"`
+}
 type SessionCheckpointCompletion struct {
 }
 type SessionCheckpointInput struct {
@@ -8650,6 +9048,8 @@ type SessionCreateInput struct {
 	Visibility       *SessionCreateInputVisibility       `json:"visibility,omitempty"`
 	IdempotencyKey   string                              `json:"idempotency_key"`
 	WaitMs           *uint64                             `json:"wait_ms,omitempty"`
+	Prompt           *string                             `json:"prompt,omitempty"`
+	Repository       *string                             `json:"repository,omitempty"`
 }
 type SessionCreateInputAgentMode string
 
@@ -8781,6 +9181,14 @@ const (
 	SessionKindSession SessionKind = "session"
 )
 
+type SessionLastTurn string
+
+const (
+	SessionLastTurnCompleted   SessionLastTurn = "completed"
+	SessionLastTurnFailed      SessionLastTurn = "failed"
+	SessionLastTurnInterrupted SessionLastTurn = "interrupted"
+)
+
 type SessionListInput struct {
 	Cursor *string `json:"cursor,omitempty"`
 	Limit  *uint64 `json:"limit,omitempty"`
@@ -8790,6 +9198,23 @@ type SessionListResult struct {
 	Items      []Session `json:"items"`
 	NextCursor *string   `json:"next_cursor,omitempty"`
 	RequestId  string    `json:"request_id"`
+}
+type SessionMessageCompletion struct {
+}
+type SessionMessageInput struct {
+	SessionId        string  `json:"session_id"`
+	IdempotencyKey   string  `json:"idempotency_key"`
+	WaitMs           *uint64 `json:"wait_ms,omitempty"`
+	ExpectedRevision uint64  `json:"expected_revision"`
+	Text             string  `json:"text"`
+}
+type SessionMessageResult struct {
+	OperationId string                `json:"operation_id"`
+	ResourceIds []ResourceRef         `json:"resource_ids"`
+	RequestId   string                `json:"request_id"`
+	Replayed    bool                  `json:"replayed"`
+	Operation   *Operation            `json:"operation,omitempty"`
+	Result      *SessionEndCompletion `json:"result,omitempty"`
 }
 type SessionObservationState string
 
@@ -8831,6 +9256,9 @@ type SessionSpawnInput struct {
 	IdempotencyKey   string    `json:"idempotency_key"`
 	WaitMs           *uint64   `json:"wait_ms,omitempty"`
 	ExpectedRevision uint64    `json:"expected_revision"`
+	HarnessId        *string   `json:"harness_id,omitempty"`
+	Prompt           *string   `json:"prompt,omitempty"`
+	Side             *bool     `json:"side,omitempty"`
 }
 type SessionSpawnResult struct {
 	OperationId string                  `json:"operation_id"`
@@ -8858,6 +9286,14 @@ const (
 	SessionStatusIdle    SessionStatus = "idle"
 )
 
+type SessionTeleportCheckInput struct {
+	SessionId string   `json:"session_id"`
+	Location  Location `json:"location"`
+}
+type SessionTeleportCheckResult struct {
+	Data      Session `json:"data"`
+	RequestId string  `json:"request_id"`
+}
 type SessionTeleportCompletion struct {
 }
 type SessionTeleportInput struct {
@@ -8876,6 +9312,12 @@ type SessionTeleportResult struct {
 	Replayed    bool                       `json:"replayed"`
 	Operation   *Operation                 `json:"operation,omitempty"`
 	Result      *SessionTeleportCompletion `json:"result,omitempty"`
+}
+type SessionTransfer struct {
+	Phase             string `json:"phase"`
+	BytesTransferred  uint64 `json:"bytes_transferred"`
+	ArtifactBytes     uint64 `json:"artifact_bytes"`
+	SafeToCloseSource bool   `json:"safe_to_close_source"`
 }
 type SessionUpdateCompletion struct {
 }
@@ -9120,6 +9562,26 @@ type SettingsSource struct {
 	Categories          *[]string                `json:"categories,omitempty"`
 	ContentDigest       *string                  `json:"content_digest,omitempty"`
 	SigningConnectionId *string                  `json:"signing_connection_id,omitempty"`
+}
+type SettingsSourceApplyCompletion struct {
+	SettingsSourceId string `json:"settings_source_id"`
+}
+type SettingsSourceApplyInput struct {
+	SettingsSourceId string   `json:"settings_source_id"`
+	SessionId        string   `json:"session_id"`
+	SettingsChangeId string   `json:"settings_change_id"`
+	BaseRevision     string   `json:"base_revision"`
+	SelectedPaths    []string `json:"selected_paths"`
+	IdempotencyKey   string   `json:"idempotency_key"`
+	WaitMs           *uint64  `json:"wait_ms,omitempty"`
+}
+type SettingsSourceApplyResult struct {
+	OperationId string                         `json:"operation_id"`
+	ResourceIds []ResourceRef                  `json:"resource_ids"`
+	RequestId   string                         `json:"request_id"`
+	Replayed    bool                           `json:"replayed"`
+	Operation   *Operation                     `json:"operation,omitempty"`
+	Result      *SettingsSourceApplyCompletion `json:"result,omitempty"`
 }
 type SettingsSourceCreateCompletion struct {
 	SettingsSourceId string `json:"settings_source_id"`
@@ -10298,6 +10760,7 @@ type UpdateCreateInput struct {
 	Visibility     *UpdateCreateInputVisibility `json:"visibility,omitempty"`
 	IdempotencyKey string                       `json:"idempotency_key"`
 	WaitMs         *uint64                      `json:"wait_ms,omitempty"`
+	Version        *string                      `json:"version,omitempty"`
 }
 type UpdateCreateInputVisibility string
 
@@ -10394,6 +10857,9 @@ const (
 	UpdateVisibilityShared  UpdateVisibility = "shared"
 )
 
+type VersionGetInput struct {
+}
+type VersionGetResult = AdapterDocument
 type Volume struct {
 	Id                      string               `json:"id"`
 	Kind                    VolumeKind           `json:"kind"`
@@ -10892,6 +11358,7 @@ var Operations = []OperationDescriptor{
 	{"credential_source_delete", "credential_source.delete", "lamp credential-source delete", "delete", "/v1/credential-sources/{credential_source_id}", "CredentialSourceDeleteInput", "CredentialSourceDeleteResult", "authenticated_scope", true},
 	{"credential_source_get", "credential_source.get", "lamp credential-source get", "get", "/v1/credential-sources/{credential_source_id}", "CredentialSourceGetInput", "CredentialSourceGetResult", "authenticated_scope", false},
 	{"credential_source_list", "credential_source.list", "lamp credential-source list", "get", "/v1/credential-sources", "CredentialSourceListInput", "CredentialSourceListResult", "authenticated_scope", false},
+	{"credential_source_revoke", "credential_source.revoke", "lamp credential-source revoke", "post", "/v1/credential-sources/{credential_source_id}:revoke", "CredentialSourceRevokeInput", "CredentialSourceRevokeResult", "authenticated_scope", true},
 	{"credential_source_update", "credential_source.update", "lamp credential-source update", "patch", "/v1/credential-sources/{credential_source_id}", "CredentialSourceUpdateInput", "CredentialSourceUpdateResult", "authenticated_scope", true},
 	{"docs_read", "docs.read", "lamp docs read", "get", "/v1/docs", "DocsReadInput", "DocsReadResult", "authenticated_scope", false},
 	{"engine_get", "engine.get", "lamp engine get", "get", "/v1/engines/{engine_id}", "EngineGetInput", "EngineGetResult", "authenticated_scope", false},
@@ -10920,6 +11387,7 @@ var Operations = []OperationDescriptor{
 	{"grant_get", "grant.get", "lamp grant get", "get", "/v1/grants/{grant_id}", "GrantGetInput", "GrantGetResult", "authenticated_scope", false},
 	{"grant_list", "grant.list", "lamp grant list", "get", "/v1/grants", "GrantListInput", "GrantListResult", "authenticated_scope", false},
 	{"grant_revoke", "grant.revoke", "lamp grant revoke", "post", "/v1/grants/{grant_id}:revoke", "GrantRevokeInput", "GrantRevokeResult", "authenticated_scope", true},
+	{"harness_enroll", "harness.enroll", "lamp harness enroll", "post", "/v1/harnesses:enroll", "HarnessEnrollInput", "HarnessEnrollResult", "authenticated_scope", true},
 	{"harness_get", "harness.get", "lamp harness get", "get", "/v1/harnesses/{harness_id}", "HarnessGetInput", "HarnessGetResult", "authenticated_scope", false},
 	{"harness_list", "harness.list", "lamp harness list", "get", "/v1/harnesses", "HarnessListInput", "HarnessListResult", "authenticated_scope", false},
 	{"host_bench", "host.bench", "lamp host bench", "post", "/v1/hosts/{host_id}:bench", "HostBenchInput", "HostBenchResult", "authenticated_scope", true},
@@ -11029,21 +11497,34 @@ var Operations = []OperationDescriptor{
 	{"recipe_get", "recipe.get", "lamp recipe get", "get", "/v1/recipes/{recipe_id}", "RecipeGetInput", "RecipeGetResult", "authenticated_scope", false},
 	{"recipe_list", "recipe.list", "lamp recipe list", "get", "/v1/recipes", "RecipeListInput", "RecipeListResult", "authenticated_scope", false},
 	{"recipe_update", "recipe.update", "lamp recipe update", "patch", "/v1/recipes/{recipe_id}", "RecipeUpdateInput", "RecipeUpdateResult", "authenticated_scope", true},
+	{"relay_get", "relay.get", "lamp relay get", "get", "/v1/relays/{relay_id}", "RelayGetInput", "RelayGetResult", "authenticated_scope", false},
+	{"relay_list", "relay.list", "lamp relay list", "get", "/v1/relays", "RelayListInput", "RelayListResult", "authenticated_scope", false},
+	{"sandbox_browser", "sandbox.browser", "lamp sandbox browser", "post", "/v1/sandboxes/{sandbox_id}:browser", "SandboxBrowserInput", "SandboxBrowserResult", "authenticated_scope", true},
 	{"sandbox_create", "sandbox.create", "lamp sandbox create", "post", "/v1/sandboxes", "SandboxCreateInput", "SandboxCreateResult", "authenticated_scope", true},
 	{"sandbox_delete", "sandbox.delete", "lamp sandbox delete", "delete", "/v1/sandboxes/{sandbox_id}", "SandboxDeleteInput", "SandboxDeleteResult", "authenticated_scope", true},
+	{"sandbox_desktop", "sandbox.desktop", "lamp sandbox desktop", "post", "/v1/sandboxes/{sandbox_id}:desktop", "SandboxDesktopInput", "SandboxDesktopResult", "authenticated_scope", true},
 	{"sandbox_device_input", "sandbox.device_input", "lamp sandbox device-input", "post", "/v1/sandboxes/{sandbox_id}:device-input", "SandboxDeviceInputInput", "SandboxDeviceInputResult", "authenticated_scope", true},
 	{"sandbox_device_watch", "sandbox.device_watch", "lamp sandbox device-watch", "get", "/v1/sandboxes/{sandbox_id}/device-stream", "SandboxDeviceWatchInput", "SandboxDeviceWatchResult", "authenticated_scope", false},
 	{"sandbox_file_delete", "sandbox.file_delete", "lamp sandbox file-delete", "post", "/v1/sandboxes/{sandbox_id}:file-delete", "SandboxFileDeleteInput", "SandboxFileDeleteResult", "authenticated_scope", true},
 	{"sandbox_file_list", "sandbox.file_list", "lamp sandbox file-list", "post", "/v1/sandboxes/{sandbox_id}:file-list", "SandboxFileListInput", "SandboxFileListResult", "authenticated_scope", false},
 	{"sandbox_file_read", "sandbox.file_read", "lamp sandbox file-read", "post", "/v1/sandboxes/{sandbox_id}:file-read", "SandboxFileReadInput", "SandboxFileReadResult", "authenticated_scope", false},
+	{"sandbox_file_rename", "sandbox.file_rename", "lamp sandbox file-rename", "post", "/v1/sandboxes/{sandbox_id}:file-rename", "SandboxFileRenameInput", "SandboxFileRenameResult", "authenticated_scope", true},
+	{"sandbox_file_search", "sandbox.file_search", "lamp sandbox file-search", "post", "/v1/sandboxes/{sandbox_id}:file-search", "SandboxFileSearchInput", "SandboxFileSearchResult", "authenticated_scope", false},
+	{"sandbox_file_stat", "sandbox.file_stat", "lamp sandbox file-stat", "post", "/v1/sandboxes/{sandbox_id}:file-stat", "SandboxFileStatInput", "SandboxFileStatResult", "authenticated_scope", false},
 	{"sandbox_file_transfer", "sandbox.file_transfer", "lamp sandbox file-transfer", "post", "/v1/sandboxes/{sandbox_id}:file-transfer", "SandboxFileTransferInput", "SandboxFileTransferResult", "authenticated_scope", true},
+	{"sandbox_file_watch", "sandbox.file_watch", "lamp sandbox file-watch", "post", "/v1/sandboxes/{sandbox_id}:file-watch", "SandboxFileWatchInput", "SandboxFileWatchResult", "authenticated_scope", false},
 	{"sandbox_file_write", "sandbox.file_write", "lamp sandbox file-write", "post", "/v1/sandboxes/{sandbox_id}:file-write", "SandboxFileWriteInput", "SandboxFileWriteResult", "authenticated_scope", true},
 	{"sandbox_fork", "sandbox.fork", "lamp sandbox fork", "post", "/v1/sandboxes/{sandbox_id}:fork", "SandboxForkInput", "SandboxForkResult", "authenticated_scope", true},
 	{"sandbox_get", "sandbox.get", "lamp sandbox get", "get", "/v1/sandboxes/{sandbox_id}", "SandboxGetInput", "SandboxGetResult", "authenticated_scope", false},
+	{"sandbox_kit", "sandbox.kit", "lamp sandbox kit", "post", "/v1/sandboxes/{sandbox_id}:kit", "SandboxKitInput", "SandboxKitResult", "authenticated_scope", true},
 	{"sandbox_list", "sandbox.list", "lamp sandbox list", "get", "/v1/sandboxes", "SandboxListInput", "SandboxListResult", "authenticated_scope", false},
+	{"sandbox_logs", "sandbox.logs", "lamp sandbox logs", "get", "/v1/sandboxes/{sandbox_id}/logs", "SandboxLogsInput", "SandboxLogsResult", "authenticated_scope", false},
+	{"sandbox_lsp", "sandbox.lsp", "lamp sandbox lsp", "post", "/v1/sandboxes/{sandbox_id}:lsp", "SandboxLspInput", "SandboxLspResult", "authenticated_scope", true},
+	{"sandbox_metrics", "sandbox.metrics", "lamp sandbox metrics", "get", "/v1/sandboxes/{sandbox_id}/metrics", "SandboxMetricsInput", "SandboxMetricsResult", "authenticated_scope", false},
 	{"sandbox_prepare_fork", "sandbox.prepare_fork", "lamp sandbox prepare-fork", "post", "/v1/sandboxes/{sandbox_id}:prepare-fork", "SandboxPrepareForkInput", "SandboxPrepareForkResult", "authenticated_scope", true},
 	{"sandbox_restore", "sandbox.restore", "lamp sandbox restore", "post", "/v1/sandboxes/{sandbox_id}:restore", "SandboxRestoreInput", "SandboxRestoreResult", "authenticated_scope", true},
 	{"sandbox_resume", "sandbox.resume", "lamp sandbox resume", "post", "/v1/sandboxes/{sandbox_id}:resume", "SandboxResumeInput", "SandboxResumeResult", "authenticated_scope", true},
+	{"sandbox_run_code", "sandbox.run_code", "lamp sandbox run-code", "post", "/v1/sandboxes/{sandbox_id}:run-code", "SandboxRunCodeInput", "SandboxRunCodeResult", "authenticated_scope", true},
 	{"sandbox_save_template", "sandbox.save_template", "lamp sandbox save-template", "post", "/v1/sandboxes/{sandbox_id}:save-template", "SandboxSaveTemplateInput", "SandboxSaveTemplateResult", "authenticated_scope", true},
 	{"sandbox_suspend", "sandbox.suspend", "lamp sandbox suspend", "post", "/v1/sandboxes/{sandbox_id}:suspend", "SandboxSuspendInput", "SandboxSuspendResult", "authenticated_scope", true},
 	{"sandbox_update", "sandbox.update", "lamp sandbox update", "patch", "/v1/sandboxes/{sandbox_id}", "SandboxUpdateInput", "SandboxUpdateResult", "authenticated_scope", true},
@@ -11055,7 +11536,10 @@ var Operations = []OperationDescriptor{
 	{"schedule_resume", "schedule.resume", "lamp schedule resume", "post", "/v1/schedules/{schedule_id}:resume", "ScheduleResumeInput", "ScheduleResumeResult", "authenticated_scope", true},
 	{"schedule_run", "schedule.run", "lamp schedule run", "post", "/v1/schedules/{schedule_id}:run", "ScheduleRunInput", "ScheduleRunResult", "authenticated_scope", true},
 	{"schedule_update", "schedule.update", "lamp schedule update", "patch", "/v1/schedules/{schedule_id}", "ScheduleUpdateInput", "ScheduleUpdateResult", "authenticated_scope", true},
+	{"secret_request", "secret.request", "lamp secret request", "post", "/v1/secrets:request", "SecretRequestInput", "SecretRequestResult", "authenticated_scope", true},
+	{"secret_set", "secret.set", "lamp secret set", "post", "/v1/secrets:set", "SecretSetInput", "SecretSetResult", "authenticated_scope", true},
 	{"session_attach", "session.attach", "lamp session attach", "post", "/v1/sessions/{session_id}:attach", "SessionAttachInput", "SessionAttachResult", "authenticated_scope", true},
+	{"session_cancel", "session.cancel", "lamp session cancel", "post", "/v1/sessions/{session_id}:cancel", "SessionCancelInput", "SessionCancelResult", "authenticated_scope", true},
 	{"session_checkpoint", "session.checkpoint", "lamp session checkpoint", "post", "/v1/sessions/{session_id}:checkpoint", "SessionCheckpointInput", "SessionCheckpointResult", "authenticated_scope", true},
 	{"session_create", "session.create", "lamp session create", "post", "/v1/sessions", "SessionCreateInput", "SessionCreateResult", "authenticated_scope", true},
 	{"session_delete", "session.delete", "lamp session delete", "delete", "/v1/sessions/{session_id}", "SessionDeleteInput", "SessionDeleteResult", "authenticated_scope", true},
@@ -11064,9 +11548,11 @@ var Operations = []OperationDescriptor{
 	{"session_input", "session.input", "lamp session input", "post", "/v1/sessions/{session_id}:input", "SessionInputInput", "SessionInputResult", "authenticated_scope", true},
 	{"session_interrupt", "session.interrupt", "lamp session interrupt", "post", "/v1/sessions/{session_id}:interrupt", "SessionInterruptInput", "SessionInterruptResult", "authenticated_scope", true},
 	{"session_list", "session.list", "lamp session list", "get", "/v1/sessions", "SessionListInput", "SessionListResult", "authenticated_scope", false},
+	{"session_message", "session.message", "lamp session message", "post", "/v1/sessions/{session_id}:message", "SessionMessageInput", "SessionMessageResult", "authenticated_scope", true},
 	{"session_resize", "session.resize", "lamp session resize", "post", "/v1/sessions/{session_id}:resize", "SessionResizeInput", "SessionResizeResult", "authenticated_scope", true},
 	{"session_spawn", "session.spawn", "lamp session spawn", "post", "/v1/sessions/{session_id}:spawn", "SessionSpawnInput", "SessionSpawnResult", "authenticated_scope", true},
 	{"session_teleport", "session.teleport", "lamp session teleport", "post", "/v1/sessions/{session_id}:teleport", "SessionTeleportInput", "SessionTeleportResult", "authenticated_scope", true},
+	{"session_teleport_check", "session.teleport", "lamp session teleport-check", "get", "/v1/sessions/{session_id}/teleport-check", "SessionTeleportCheckInput", "SessionTeleportCheckResult", "authenticated_scope", false},
 	{"session_update", "session.update", "lamp session update", "patch", "/v1/sessions/{session_id}", "SessionUpdateInput", "SessionUpdateResult", "authenticated_scope", true},
 	{"session_watch", "session.watch", "lamp session watch", "get", "/v1/sessions/{session_id}/output", "SessionWatchInput", "SessionWatchResult", "authenticated_scope", false},
 	{"settings_change_apply", "settings_change.apply", "lamp settings-change apply", "post", "/v1/settings-changes/{settings_change_id}:apply", "SettingsChangeApplyInput", "SettingsChangeApplyResult", "authenticated_scope", true},
@@ -11075,6 +11561,7 @@ var Operations = []OperationDescriptor{
 	{"settings_change_get", "settings_change.get", "lamp settings-change get", "get", "/v1/settings-changes/{settings_change_id}", "SettingsChangeGetInput", "SettingsChangeGetResult", "authenticated_scope", false},
 	{"settings_change_list", "settings_change.list", "lamp settings-change list", "get", "/v1/settings-changes", "SettingsChangeListInput", "SettingsChangeListResult", "authenticated_scope", false},
 	{"settings_change_reject", "settings_change.reject", "lamp settings-change reject", "post", "/v1/settings-changes/{settings_change_id}:reject", "SettingsChangeRejectInput", "SettingsChangeRejectResult", "authenticated_scope", true},
+	{"settings_source_apply", "settings_source.apply", "lamp settings-source apply", "post", "/v1/settings-sources/{settings_source_id}:apply", "SettingsSourceApplyInput", "SettingsSourceApplyResult", "authenticated_scope", true},
 	{"settings_source_create", "settings_source.create", "lamp settings-source create", "post", "/v1/settings-sources", "SettingsSourceCreateInput", "SettingsSourceCreateResult", "authenticated_scope", true},
 	{"settings_source_delete", "settings_source.delete", "lamp settings-source delete", "delete", "/v1/settings-sources/{settings_source_id}", "SettingsSourceDeleteInput", "SettingsSourceDeleteResult", "authenticated_scope", true},
 	{"settings_source_get", "settings_source.get", "lamp settings-source get", "get", "/v1/settings-sources/{settings_source_id}", "SettingsSourceGetInput", "SettingsSourceGetResult", "authenticated_scope", false},
@@ -11117,6 +11604,7 @@ var Operations = []OperationDescriptor{
 	{"update_get", "update.get", "lamp update get", "get", "/v1/updates/{update_id}", "UpdateGetInput", "UpdateGetResult", "authenticated_scope", false},
 	{"update_list", "update.list", "lamp update list", "get", "/v1/updates", "UpdateListInput", "UpdateListResult", "authenticated_scope", false},
 	{"update_rollback", "update.rollback", "lamp update rollback", "post", "/v1/updates/{update_id}:rollback", "UpdateRollbackInput", "UpdateRollbackResult", "authenticated_scope", true},
+	{"version_get", "api.describe", "lamp version", "get", "/v1/version", "VersionGetInput", "VersionGetResult", "authenticated_scope", false},
 	{"volume_create", "volume.create", "lamp volume create", "post", "/v1/volumes", "VolumeCreateInput", "VolumeCreateResult", "authenticated_scope", true},
 	{"volume_delete", "volume.delete", "lamp volume delete", "delete", "/v1/volumes/{volume_id}", "VolumeDeleteInput", "VolumeDeleteResult", "authenticated_scope", true},
 	{"volume_get", "volume.get", "lamp volume get", "get", "/v1/volumes/{volume_id}", "VolumeGetInput", "VolumeGetResult", "authenticated_scope", false},

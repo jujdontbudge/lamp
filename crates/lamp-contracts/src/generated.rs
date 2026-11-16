@@ -6141,6 +6141,37 @@ pub struct CredentialSourceListResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeInput {
+    #[serde(rename = "credential_source_id")]
+    pub credential_source_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CredentialSourceRevokeResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<CredentialSourceRevokeCompletion>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CredentialSourceState {
     #[serde(rename = "locked")]
@@ -6595,6 +6626,8 @@ pub enum ErrorCode {
     TOKENHOMEUNAVAILABLE,
     #[serde(rename = "AUDIT_UNAVAILABLE")]
     AUDITUNAVAILABLE,
+    #[serde(rename = "FAILED_PRECONDITION")]
+    FAILEDPRECONDITION,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7161,6 +7194,44 @@ pub struct Exec {
         skip_serializing_if = "Option::is_none"
     )]
     pub output_cursor: Option<String>,
+    #[serde(
+        rename = "stdout_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdout_bytes: Option<u64>,
+    #[serde(
+        rename = "stderr_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stderr_bytes: Option<u64>,
+    #[serde(
+        rename = "output_truncated",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub output_truncated: Option<bool>,
+    #[serde(rename = "timed_out", default, skip_serializing_if = "Option::is_none")]
+    pub timed_out: Option<bool>,
+    #[serde(
+        rename = "timeout_ms",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub timeout_ms: Option<u64>,
+    #[serde(
+        rename = "failure_reason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub failure_reason: Option<String>,
+    #[serde(
+        rename = "stdin_open",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdin_open: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7219,6 +7290,18 @@ pub struct ExecCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "timeout_ms",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub timeout_ms: Option<u64>,
+    #[serde(
+        rename = "stdin_open",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stdin_open: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExecCreateInputVisibility {
@@ -7306,6 +7389,8 @@ pub struct ExecInputInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "expected_revision")]
     pub expected_revision: u64,
+    #[serde(rename = "eof", default, skip_serializing_if = "Option::is_none")]
+    pub eof: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7370,6 +7455,12 @@ pub struct ExecListInput {
     pub limit: Option<u64>,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "sandbox_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sandbox_id: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -7939,6 +8030,18 @@ pub struct Fleet {
         skip_serializing_if = "Option::is_none"
     )]
     pub update_policy: Option<UpdatePolicy>,
+    #[serde(
+        rename = "unavailable_host_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unavailable_host_ids: Option<Vec<String>>,
+    #[serde(
+        rename = "stranded_sandbox_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub stranded_sandbox_ids: Option<Vec<String>>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FleetCoordinationState {
@@ -8561,6 +8664,70 @@ pub struct Harness {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct HarnessEnrollCompletion {
+    #[serde(rename = "harness_id")]
+    pub harness_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessEnrollInput {
+    #[serde(rename = "harness_id")]
+    pub harness_id: String,
+    #[serde(rename = "model", default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(
+        rename = "credential_source_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub credential_source_id: Option<String>,
+    #[serde(
+        rename = "nested_create",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub nested_create: Option<bool>,
+    #[serde(
+        rename = "settings_source_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub settings_source_ids: Option<Vec<String>>,
+    #[serde(
+        rename = "connection_ids",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub connection_ids: Option<Vec<String>>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "secret_names",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub secret_names: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HarnessEnrollResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<HarnessEnrollCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HarnessGetInput {
     #[serde(rename = "harness_id")]
     pub harness_id: String,
@@ -8712,6 +8879,8 @@ pub struct Host {
         skip_serializing_if = "Option::is_none"
     )]
     pub heartbeat_at: Option<String>,
+    #[serde(rename = "version", default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -10153,12 +10322,8 @@ pub struct KeyCreateInput {
     pub parent_key_id: Option<String>,
     #[serde(rename = "scope", default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<Scope>,
-    #[serde(
-        rename = "expires_at",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub expires_at: Option<String>,
+    #[serde(rename = "expires_at")]
+    pub expires_at: String,
     #[serde(rename = "labels", default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<StringMap>,
     #[serde(
@@ -11135,6 +11300,8 @@ pub enum LifecycleIdleAction {
     Delete,
     #[serde(rename = "keep")]
     Keep,
+    #[serde(rename = "stop")]
+    Stop,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LifecycleOnJobEnd {
@@ -15241,6 +15408,91 @@ pub enum RecipeVisibility {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct Relay {
+    #[serde(rename = "id")]
+    pub id: String,
+    #[serde(rename = "kind")]
+    pub kind: RelayKind,
+    #[serde(rename = "fleet_id")]
+    pub fleet_id: String,
+    #[serde(rename = "owner_id")]
+    pub owner_id: String,
+    #[serde(rename = "revision")]
+    pub revision: u64,
+    #[serde(rename = "created_at")]
+    pub created_at: String,
+    #[serde(rename = "updated_at")]
+    pub updated_at: String,
+    #[serde(rename = "state")]
+    pub state: RelayState,
+    #[serde(rename = "labels")]
+    pub labels: StringMap,
+    #[serde(rename = "visibility")]
+    pub visibility: RelayVisibility,
+    #[serde(rename = "host_id", default, skip_serializing_if = "Option::is_none")]
+    pub host_id: Option<String>,
+    #[serde(rename = "origin", default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayGetInput {
+    #[serde(rename = "relay_id")]
+    pub relay_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayGetResult {
+    #[serde(rename = "data")]
+    pub data: Relay,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayKind {
+    #[serde(rename = "relay")]
+    Relay,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayListInput {
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelayListResult {
+    #[serde(rename = "items")]
+    pub items: Vec<Relay>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayState {
+    #[serde(rename = "connected")]
+    Connected,
+    #[serde(rename = "disconnected")]
+    Disconnected,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RelayVisibility {
+    #[serde(rename = "private")]
+    Private,
+    #[serde(rename = "shared")]
+    Shared,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReplicaReceipt {
     #[serde(rename = "host_id", default, skip_serializing_if = "Option::is_none")]
     pub host_id: Option<String>,
@@ -15494,8 +15746,11 @@ pub struct Resources {
     pub memory_mib: u64,
     #[serde(rename = "disk_gib")]
     pub disk_gib: u64,
-    #[serde(rename = "pids_max")]
+    #[serde(rename = "pids_max", default = "default_resources_pids_max")]
     pub pids_max: u64,
+}
+fn default_resources_pids_max() -> u64 {
+    4096
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15689,6 +15944,18 @@ pub struct Sandbox {
     pub custody_host_ids: Option<Vec<String>>,
     #[serde(rename = "exposures", default, skip_serializing_if = "Option::is_none")]
     pub exposures: Option<Vec<String>>,
+    #[serde(
+        rename = "saved_state_until",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub saved_state_until: Option<String>,
+    #[serde(
+        rename = "idle_countdown",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub idle_countdown: Option<SandboxIdleCountdown>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxAuthMode {
@@ -15709,6 +15976,54 @@ pub enum SandboxBoundary {
     Gvisor,
     #[serde(rename = "process")]
     Process,
+}
+pub type SandboxBrowserCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxBrowserInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxBrowserInputAction,
+    #[serde(rename = "url", default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(
+        rename = "expression",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub expression: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxBrowserInputAction {
+    #[serde(rename = "navigate")]
+    Navigate,
+    #[serde(rename = "evaluate")]
+    Evaluate,
+    #[serde(rename = "screenshot")]
+    Screenshot,
+    #[serde(rename = "close")]
+    Close,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxBrowserResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxBrowserCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxCaptureTrust {
@@ -15798,6 +16113,14 @@ pub struct SandboxCreateInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "labels", default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<StringMap>,
+    #[serde(
+        rename = "snapshot_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub snapshot_id: Option<String>,
+    #[serde(rename = "budget_id", default, skip_serializing_if = "Option::is_none")]
+    pub budget_id: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxCreateInputAuthMode {
@@ -15867,6 +16190,64 @@ pub struct SandboxDeleteResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxDeleteCompletion>,
+}
+pub type SandboxDesktopCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxDesktopInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxDesktopInputAction,
+    #[serde(rename = "x", default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<u64>,
+    #[serde(rename = "y", default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<u64>,
+    #[serde(rename = "text", default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "key", default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(rename = "button", default, skip_serializing_if = "Option::is_none")]
+    pub button: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxDesktopInputAction {
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "move")]
+    Move,
+    #[serde(rename = "click")]
+    Click,
+    #[serde(rename = "type")]
+    Type,
+    #[serde(rename = "key")]
+    Key,
+    #[serde(rename = "screenshot")]
+    Screenshot,
+    #[serde(rename = "record_start")]
+    RecordStart,
+    #[serde(rename = "record_stop")]
+    RecordStop,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxDesktopResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxDesktopCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15995,6 +16376,10 @@ pub struct SandboxFileListInput {
     pub sandbox_id: String,
     #[serde(rename = "path")]
     pub path: String,
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16017,12 +16402,105 @@ pub struct SandboxFileReadInput {
     pub sandbox_id: String,
     #[serde(rename = "path")]
     pub path: String,
-    #[serde(rename = "offset_bytes")]
-    pub offset_bytes: u64,
-    #[serde(rename = "length_bytes")]
-    pub length_bytes: u64,
+    #[serde(
+        rename = "offset_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub offset_bytes: Option<u64>,
+    #[serde(
+        rename = "length_bytes",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub length_bytes: Option<u64>,
 }
 pub type SandboxFileReadResult = FileReadResult;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+    #[serde(rename = "destination")]
+    pub destination: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileRenameResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxFileRenameCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileSearchInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "query")]
+    pub query: String,
+    #[serde(rename = "contents", default, skip_serializing_if = "Option::is_none")]
+    pub contents: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileSearchResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "truncated", default, skip_serializing_if = "Option::is_none")]
+    pub truncated: Option<bool>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileStatInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileStatResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SandboxFileTransferCompletion {
@@ -16069,6 +16547,32 @@ pub struct SandboxFileTransferResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxFileTransferCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileWatchInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "path")]
+    pub path: String,
+    #[serde(rename = "cursor", default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxFileWatchResult {
+    #[serde(rename = "items")]
+    pub items: Vec<FileEntry>,
+    #[serde(
+        rename = "next_cursor",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16209,10 +16713,86 @@ pub struct SandboxGetResult {
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxIdleCountdown {
+    #[serde(rename = "action", default, skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(
+        rename = "grace_seconds",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub grace_seconds: Option<u64>,
+    #[serde(
+        rename = "idle_since",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub idle_since: Option<String>,
+    #[serde(rename = "fires_at", default, skip_serializing_if = "Option::is_none")]
+    pub fires_at: Option<String>,
+    #[serde(
+        rename = "expires_at",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub expires_at: Option<String>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxKind {
     #[serde(rename = "sandbox")]
     Sandbox,
+}
+pub type SandboxKitCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxKitInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "kit")]
+    pub kit: SandboxKitInputKit,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxKitInputKit {
+    #[serde(rename = "browser")]
+    Browser,
+    #[serde(rename = "desktop")]
+    Desktop,
+    #[serde(rename = "docker")]
+    Docker,
+    #[serde(rename = "python")]
+    Python,
+    #[serde(rename = "node")]
+    Node,
+    #[serde(rename = "go")]
+    Go,
+    #[serde(rename = "rust")]
+    Rust,
+    #[serde(rename = "c")]
+    C,
+    #[serde(rename = "lsp")]
+    Lsp,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxKitResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxKitCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16223,6 +16803,12 @@ pub struct SandboxListInput {
     pub limit: Option<u64>,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(
+        rename = "include_deleted",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub include_deleted: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16235,6 +16821,92 @@ pub struct SandboxListResult {
         skip_serializing_if = "Option::is_none"
     )]
     pub next_cursor: Option<String>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLogsInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLogsResult {
+    #[serde(rename = "items")]
+    pub items: Vec<serde_json::Value>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+pub type SandboxLspCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLspInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "action")]
+    pub action: SandboxLspInputAction,
+    #[serde(rename = "path", default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(rename = "text", default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(rename = "line", default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<u64>,
+    #[serde(rename = "character", default, skip_serializing_if = "Option::is_none")]
+    pub character: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxLspInputAction {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "open")]
+    Open,
+    #[serde(rename = "symbols")]
+    Symbols,
+    #[serde(rename = "completions")]
+    Completions,
+    #[serde(rename = "diagnostics")]
+    Diagnostics,
+    #[serde(rename = "close")]
+    Close,
+    #[serde(rename = "stop")]
+    Stop,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxLspResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxLspCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxMetricsInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "limit", default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxMetricsResult {
+    #[serde(rename = "items")]
+    pub items: Vec<serde_json::Value>,
     #[serde(rename = "request_id")]
     pub request_id: String,
 }
@@ -16403,6 +17075,44 @@ pub struct SandboxResumeResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SandboxResumeCompletion>,
+}
+pub type SandboxRunCodeCompletion = AdapterDocument;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxRunCodeInput {
+    #[serde(rename = "sandbox_id")]
+    pub sandbox_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "code")]
+    pub code: String,
+    #[serde(rename = "lang", default, skip_serializing_if = "Option::is_none")]
+    pub lang: Option<SandboxRunCodeInputLang>,
+    #[serde(rename = "context", default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxRunCodeInputLang {
+    #[serde(rename = "python")]
+    Python,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SandboxRunCodeResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SandboxRunCodeCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16792,6 +17502,18 @@ pub struct Schedule {
     pub next_run_at: Option<String>,
     #[serde(rename = "enabled", default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(
+        rename = "last_run_at",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_run_at: Option<String>,
+    #[serde(
+        rename = "last_run_status",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub last_run_status: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17849,6 +18571,102 @@ pub enum ScopeActionsItem {
     WarmPoolList,
     #[serde(rename = "warm_pool.update")]
     WarmPoolUpdate,
+    #[serde(rename = "sandbox.file_stat")]
+    SandboxFileStat,
+    #[serde(rename = "sandbox.file_search")]
+    SandboxFileSearch,
+    #[serde(rename = "sandbox.file_watch")]
+    SandboxFileWatch,
+    #[serde(rename = "sandbox.file_rename")]
+    SandboxFileRename,
+    #[serde(rename = "sandbox.kit")]
+    SandboxKit,
+    #[serde(rename = "sandbox.run_code")]
+    SandboxRunCode,
+    #[serde(rename = "sandbox.lsp")]
+    SandboxLsp,
+    #[serde(rename = "sandbox.browser")]
+    SandboxBrowser,
+    #[serde(rename = "sandbox.desktop")]
+    SandboxDesktop,
+    #[serde(rename = "sandbox.metrics")]
+    SandboxMetrics,
+    #[serde(rename = "sandbox.logs")]
+    SandboxLogs,
+    #[serde(rename = "session.message")]
+    SessionMessage,
+    #[serde(rename = "session.cancel")]
+    SessionCancel,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretRequestCompletion {
+    #[serde(rename = "entry_url")]
+    pub entry_url: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretRequestInput {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "hosts")]
+    pub hosts: Vec<String>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretRequestResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SecretRequestCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetCompletion {
+    #[serde(rename = "name")]
+    pub name: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetInput {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "value")]
+    pub value: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "hosts", default, skip_serializing_if = "Option::is_none")]
+    pub hosts: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretSetResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SecretSetCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17961,6 +18779,28 @@ pub struct Session {
         skip_serializing_if = "Option::is_none"
     )]
     pub continuation_ref: Option<String>,
+    #[serde(
+        rename = "repository",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub repository: Option<String>,
+    #[serde(
+        rename = "shared_session_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_session_id: Option<String>,
+    #[serde(
+        rename = "shared_epoch",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shared_epoch: Option<u64>,
+    #[serde(rename = "last_turn", default, skip_serializing_if = "Option::is_none")]
+    pub last_turn: Option<SessionLastTurn>,
+    #[serde(rename = "transfer", default, skip_serializing_if = "Option::is_none")]
+    pub transfer: Option<SessionTransfer>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionAgentMode {
@@ -18017,6 +18857,37 @@ pub enum SessionAuthMode {
     Subscription,
     #[serde(rename = "delegated")]
     Delegated,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionCancelResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SessionEndCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18110,6 +18981,14 @@ pub struct SessionCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "prompt", default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(
+        rename = "repository",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub repository: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionCreateInputAgentMode {
@@ -18325,6 +19204,15 @@ pub enum SessionKind {
     #[serde(rename = "session")]
     Session,
 }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SessionLastTurn {
+    #[serde(rename = "completed")]
+    Completed,
+    #[serde(rename = "failed")]
+    Failed,
+    #[serde(rename = "interrupted")]
+    Interrupted,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionListInput {
@@ -18348,6 +19236,39 @@ pub struct SessionListResult {
     pub next_cursor: Option<String>,
     #[serde(rename = "request_id")]
     pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageCompletion {}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+    #[serde(rename = "expected_revision")]
+    pub expected_revision: u64,
+    #[serde(rename = "text")]
+    pub text: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionMessageResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SessionEndCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionObservationState {
@@ -18434,6 +19355,16 @@ pub struct SessionSpawnInput {
     pub wait_ms: Option<u64>,
     #[serde(rename = "expected_revision")]
     pub expected_revision: u64,
+    #[serde(
+        rename = "harness_id",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub harness_id: Option<String>,
+    #[serde(rename = "prompt", default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
+    #[serde(rename = "side", default, skip_serializing_if = "Option::is_none")]
+    pub side: Option<bool>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18475,6 +19406,22 @@ pub enum SessionStatus {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct SessionTeleportCheckInput {
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "location")]
+    pub location: Location,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionTeleportCheckResult {
+    #[serde(rename = "data")]
+    pub data: Session,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SessionTeleportCompletion {}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -18513,6 +19460,18 @@ pub struct SessionTeleportResult {
     pub operation: Option<Operation>,
     #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
     pub result: Option<SessionTeleportCompletion>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionTransfer {
+    #[serde(rename = "phase")]
+    pub phase: String,
+    #[serde(rename = "bytes_transferred")]
+    pub bytes_transferred: u64,
+    #[serde(rename = "artifact_bytes")]
+    pub artifact_bytes: u64,
+    #[serde(rename = "safe_to_close_source")]
+    pub safe_to_close_source: bool,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19044,6 +20003,46 @@ pub struct SettingsSource {
         skip_serializing_if = "Option::is_none"
     )]
     pub signing_connection_id: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyCompletion {
+    #[serde(rename = "settings_source_id")]
+    pub settings_source_id: String,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyInput {
+    #[serde(rename = "settings_source_id")]
+    pub settings_source_id: String,
+    #[serde(rename = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "settings_change_id")]
+    pub settings_change_id: String,
+    #[serde(rename = "base_revision")]
+    pub base_revision: String,
+    #[serde(rename = "selected_paths")]
+    pub selected_paths: Vec<String>,
+    #[serde(rename = "idempotency_key")]
+    pub idempotency_key: String,
+    #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsSourceApplyResult {
+    #[serde(rename = "operation_id")]
+    pub operation_id: String,
+    #[serde(rename = "resource_ids")]
+    pub resource_ids: Vec<ResourceRef>,
+    #[serde(rename = "request_id")]
+    pub request_id: String,
+    #[serde(rename = "replayed")]
+    pub replayed: bool,
+    #[serde(rename = "operation", default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
+    #[serde(rename = "result", default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<SettingsSourceApplyCompletion>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21679,6 +22678,8 @@ pub struct UpdateCreateInput {
     pub idempotency_key: String,
     #[serde(rename = "wait_ms", default, skip_serializing_if = "Option::is_none")]
     pub wait_ms: Option<u64>,
+    #[serde(rename = "version", default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateCreateInputVisibility {
@@ -21852,6 +22853,10 @@ pub enum UpdateVisibility {
     #[serde(rename = "shared")]
     Shared,
 }
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VersionGetInput {}
+pub type VersionGetResult = AdapterDocument;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Volume {
@@ -23708,6 +24713,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "credential_source_revoke",
+        scope: "credential_source.revoke",
+        cli: "lamp credential-source revoke",
+        method: "post",
+        path: "/v1/credential-sources/{credential_source_id}:revoke",
+        input_schema: "CredentialSourceRevokeInput",
+        result_schema: "CredentialSourceRevokeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "credential_source_update",
         scope: "credential_source.update",
         cli: "lamp credential-source update",
@@ -24012,6 +25028,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/grants/{grant_id}:revoke",
         input_schema: "GrantRevokeInput",
         result_schema: "GrantRevokeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "harness_enroll",
+        scope: "harness.enroll",
+        cli: "lamp harness enroll",
+        method: "post",
+        path: "/v1/harnesses:enroll",
+        input_schema: "HarnessEnrollInput",
+        result_schema: "HarnessEnrollResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -25215,6 +26242,39 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: true,
     },
     OperationDescriptor {
+        name: "relay_get",
+        scope: "relay.get",
+        cli: "lamp relay get",
+        method: "get",
+        path: "/v1/relays/{relay_id}",
+        input_schema: "RelayGetInput",
+        result_schema: "RelayGetResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "relay_list",
+        scope: "relay.list",
+        cli: "lamp relay list",
+        method: "get",
+        path: "/v1/relays",
+        input_schema: "RelayListInput",
+        result_schema: "RelayListResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_browser",
+        scope: "sandbox.browser",
+        cli: "lamp sandbox browser",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:browser",
+        input_schema: "SandboxBrowserInput",
+        result_schema: "SandboxBrowserResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "sandbox_create",
         scope: "sandbox.create",
         cli: "lamp sandbox create",
@@ -25233,6 +26293,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sandboxes/{sandbox_id}",
         input_schema: "SandboxDeleteInput",
         result_schema: "SandboxDeleteResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_desktop",
+        scope: "sandbox.desktop",
+        cli: "lamp sandbox desktop",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:desktop",
+        input_schema: "SandboxDesktopInput",
+        result_schema: "SandboxDesktopResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -25292,6 +26363,39 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_file_rename",
+        scope: "sandbox.file_rename",
+        cli: "lamp sandbox file-rename",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-rename",
+        input_schema: "SandboxFileRenameInput",
+        result_schema: "SandboxFileRenameResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_search",
+        scope: "sandbox.file_search",
+        cli: "lamp sandbox file-search",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-search",
+        input_schema: "SandboxFileSearchInput",
+        result_schema: "SandboxFileSearchResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_stat",
+        scope: "sandbox.file_stat",
+        cli: "lamp sandbox file-stat",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-stat",
+        input_schema: "SandboxFileStatInput",
+        result_schema: "SandboxFileStatResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
         name: "sandbox_file_transfer",
         scope: "sandbox.file_transfer",
         cli: "lamp sandbox file-transfer",
@@ -25301,6 +26405,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SandboxFileTransferResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_file_watch",
+        scope: "sandbox.file_watch",
+        cli: "lamp sandbox file-watch",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:file-watch",
+        input_schema: "SandboxFileWatchInput",
+        result_schema: "SandboxFileWatchResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "sandbox_file_write",
@@ -25336,6 +26451,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "sandbox_kit",
+        scope: "sandbox.kit",
+        cli: "lamp sandbox kit",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:kit",
+        input_schema: "SandboxKitInput",
+        result_schema: "SandboxKitResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "sandbox_list",
         scope: "sandbox.list",
         cli: "lamp sandbox list",
@@ -25343,6 +26469,39 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sandboxes",
         input_schema: "SandboxListInput",
         result_schema: "SandboxListResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_logs",
+        scope: "sandbox.logs",
+        cli: "lamp sandbox logs",
+        method: "get",
+        path: "/v1/sandboxes/{sandbox_id}/logs",
+        input_schema: "SandboxLogsInput",
+        result_schema: "SandboxLogsResult",
+        authorization: "authenticated_scope",
+        mutation: false,
+    },
+    OperationDescriptor {
+        name: "sandbox_lsp",
+        scope: "sandbox.lsp",
+        cli: "lamp sandbox lsp",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:lsp",
+        input_schema: "SandboxLspInput",
+        result_schema: "SandboxLspResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_metrics",
+        scope: "sandbox.metrics",
+        cli: "lamp sandbox metrics",
+        method: "get",
+        path: "/v1/sandboxes/{sandbox_id}/metrics",
+        input_schema: "SandboxMetricsInput",
+        result_schema: "SandboxMetricsResult",
         authorization: "authenticated_scope",
         mutation: false,
     },
@@ -25376,6 +26535,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sandboxes/{sandbox_id}:resume",
         input_schema: "SandboxResumeInput",
         result_schema: "SandboxResumeResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "sandbox_run_code",
+        scope: "sandbox.run_code",
+        cli: "lamp sandbox run-code",
+        method: "post",
+        path: "/v1/sandboxes/{sandbox_id}:run-code",
+        input_schema: "SandboxRunCodeInput",
+        result_schema: "SandboxRunCodeResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -25501,6 +26671,28 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: true,
     },
     OperationDescriptor {
+        name: "secret_request",
+        scope: "secret.request",
+        cli: "lamp secret request",
+        method: "post",
+        path: "/v1/secrets:request",
+        input_schema: "SecretRequestInput",
+        result_schema: "SecretRequestResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "secret_set",
+        scope: "secret.set",
+        cli: "lamp secret set",
+        method: "post",
+        path: "/v1/secrets:set",
+        input_schema: "SecretSetInput",
+        result_schema: "SecretSetResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "session_attach",
         scope: "session.attach",
         cli: "lamp session attach",
@@ -25508,6 +26700,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/sessions/{session_id}:attach",
         input_schema: "SessionAttachInput",
         result_schema: "SessionAttachResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "session_cancel",
+        scope: "session.cancel",
+        cli: "lamp session cancel",
+        method: "post",
+        path: "/v1/sessions/{session_id}:cancel",
+        input_schema: "SessionCancelInput",
+        result_schema: "SessionCancelResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -25600,6 +26803,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         mutation: false,
     },
     OperationDescriptor {
+        name: "session_message",
+        scope: "session.message",
+        cli: "lamp session message",
+        method: "post",
+        path: "/v1/sessions/{session_id}:message",
+        input_schema: "SessionMessageInput",
+        result_schema: "SessionMessageResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
         name: "session_resize",
         scope: "session.resize",
         cli: "lamp session resize",
@@ -25631,6 +26845,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "SessionTeleportResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "session_teleport_check",
+        scope: "session.teleport",
+        cli: "lamp session teleport-check",
+        method: "get",
+        path: "/v1/sessions/{session_id}/teleport-check",
+        input_schema: "SessionTeleportCheckInput",
+        result_schema: "SessionTeleportCheckResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "session_update",
@@ -25717,6 +26942,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         path: "/v1/settings-changes/{settings_change_id}:reject",
         input_schema: "SettingsChangeRejectInput",
         result_schema: "SettingsChangeRejectResult",
+        authorization: "authenticated_scope",
+        mutation: true,
+    },
+    OperationDescriptor {
+        name: "settings_source_apply",
+        scope: "settings_source.apply",
+        cli: "lamp settings-source apply",
+        method: "post",
+        path: "/v1/settings-sources/{settings_source_id}:apply",
+        input_schema: "SettingsSourceApplyInput",
+        result_schema: "SettingsSourceApplyResult",
         authorization: "authenticated_scope",
         mutation: true,
     },
@@ -26181,6 +27417,17 @@ pub const OPERATIONS: &[OperationDescriptor] = &[
         result_schema: "UpdateRollbackResult",
         authorization: "authenticated_scope",
         mutation: true,
+    },
+    OperationDescriptor {
+        name: "version_get",
+        scope: "api.describe",
+        cli: "lamp version",
+        method: "get",
+        path: "/v1/version",
+        input_schema: "VersionGetInput",
+        result_schema: "VersionGetResult",
+        authorization: "authenticated_scope",
+        mutation: false,
     },
     OperationDescriptor {
         name: "volume_create",
